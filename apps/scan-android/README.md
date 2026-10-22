@@ -2,42 +2,134 @@
 
 Appli de scan : lit un code QR ou 1D, affiche la fiche, envoie des mouvements au serveur de l'entreprise.
 
-> 🚧 Pas encore de code. Ce document fixe le périmètre du premier jalon (v0.1).
+> État : v0.1 en cours. Le module `:core` (toute la logique) est écrit et testé ; le module `:app` (Android) est écrit mais **n'a pas encore été compilé** (voir « État » plus bas).
 
-## Stack
+## Construire
 
-| Besoin | Choix |
-|---|---|
-| Langage / UI | Kotlin, Jetpack Compose (Material 3) |
-| Caméra | CameraX (`ImageAnalysis`, 1280×720) |
-| Décodage | `com.google.zxing:core` ([ADR 0002](../../docs/adr/0002-zxing-qr-et-1d.md)) |
-| File offline / cache | Room |
-| Synchro | WorkManager |
-| Réseau | OkHttp + kotlinx.serialization |
-| Images | Coil (cache disque) |
-| Secrets | Android Keystore |
-| minSdk / targetSdk | 23 / dernière stable ([ADR 0007](../../docs/adr/0007-compatibilite-android.md)) |
+Prérequis : JDK 17 ou plus récent. Le wrapper Gradle (8.14.3) est fourni.
 
-Aucune dépendance aux Google Play Services : l'appli doit pouvoir être publiée sur F-Droid.
+```bash
+# Logique pure Kotlin, sans SDK Android (CI, poste sans Android Studio)
+./gradlew :core:test
 
-## Organisation prévue
+# Appli Android : nécessite un SDK (Android Studio, ou ANDROID_HOME / local.properties sdk.dir)
+./gradlew :app:assembleDebug        # APK de debug : app/build/outputs/apk/debug/
+./gradlew :app:assembleRelease      # R8 + réduction des ressources (signature à configurer)
+```
+
+Le module `:app` n'est inclus que si un SDK Android est détecté (`local.properties` → `sdk.dir`, ou `ANDROID_HOME` / `ANDROID_SDK_ROOT`). Sans SDK, Gradle l'ignore (message « module :app ignoré ») et le plugin Android n'est même pas téléchargé : `:core` se construit partout.
+
+Android Studio : ouvrir le dossier `apps/scan-android/` (il crée `local.properties` automatiquement).
+
+Essai de bout en bout avec le serveur de démo :
+
+```bash
+node ../../tools/mock-server/server.js            # http://0.0.0.0:8787
+# Émulateur : charger spec/examples/kura-config.minimal.json (http://10.0.2.2:8787),
+# accepter l'avertissement « connexion non chiffrée », scanner REF-0042.
+```
+
+## Organisation
 
 ```
 scan-android/
-├── app/                 # UI Compose, navigation, injection
-├── core/config/         # Lecture + validation de kura-config.json, QR de config
-├── core/scan/           # Analyseur CameraX → ZXing, parsing id/delimited/json, saisie HID
-├── core/sync/           # Opérations, file Room, WorkManager, mapping requête/réponse
-└── core/net/            # Client HTTP, authentification
+├── settings.gradle.kts      # :core toujours, :app seulement si SDK Android
+├── gradle/libs.versions.toml
+├── core/                    # Kotlin/JVM pur — testé sur JVM (JUnit 5)
+│   └── src/main/kotlin/dev/kura/core/
+│       ├── config/          # KuraConfig (miroir du schéma), validation FR, QR de config, signature Ed25519
+│       ├── scan/            # Symbologies, ScanParser (id/delimited/json), ScanTrigger (ADR 0006), HID, filtre « même code »
+│       ├── template/        # Gabarits {var} (chemins + request_mapping), JsonPath, fiche (response_mapping)
+│       ├── ops/             # Operation, validation (= mock server), fabrique UUID v4, PendingStepper
+│       ├── sync/            # Statuts → actions de file, backoff, lots, SyncEngine, OperationStore
+│       ├── burst/           # Session rafale : lignes, annuler, corriger (ADR 0004)
+│       ├── net/             # Construction des requêtes (auth, URL, corps), KuraClient, interface HttpTransport
+│       ├── security/        # Argon2id PHC (Bouncy Castle), enveloppe de secret AES-GCM
+│       └── util/            # Base64 (java.util.Base64 absent avant Android 8)
+└── app/                     # Android : Compose, CameraX + ZXing, Room, WorkManager, OkHttp, Coil
+    └── src/main/java/dev/kura/scan/
+        ├── MainActivity.kt  # activité unique ; touches de volume et frappes HID
+        ├── AppContainer.kt  # injection manuelle, paresseuse
+        ├── data/            # Réglages, SecretStore (AndroidKeyStore), verrou, Room (file + cache fiches)
+        ├── net/             # OkHttpTransport (implémente HttpTransport de :core)
+        ├── sync/            # SyncWorker + SyncScheduler (WorkManager, contrainte réseau)
+        ├── scan/            # ZxingAnalyzer (recadrage, rotation), CameraPreview, retour vibration/son
+        └── ui/              # Compose Material 3 : Scan, Fiche, Rafale, File d'attente, Réglages, import de config
 ```
 
-`core/config`, le parsing des codes et le moteur de mapping sont du Kotlin pur, testables sur JVM sans émulateur.
+Le format du QR de configuration est spécifié dans [`spec/config-qr.md`](../../spec/config-qr.md) (avec vecteurs de test partagés avec Kura Studio).
 
-## v0.1 : critères d'acceptation
+## Choix techniques
 
-- [ ] Charger une config depuis un fichier ou un QR de config ; refuser une config invalide avec un message clair.
-- [ ] Scanner QR, EAN-13, EAN-8, Code 128 (liste réglable par `scan.symbologies`).
-- [ ] Mode `id` : `GET /items/{ref}` et affichage des champs `display.show_fields`.
-- [ ] Boutons de pas, champ quantité, Valider → une opération `delta` (somme des appuis) ou `set`.
-- [ ] Envoi `POST /operations` (ou endpoint + `request_mapping` de la config) et affichage du résultat.
-- [ ] Fonctionne de bout en bout contre `tools/mock-server`.
+| Besoin | Choix |
+|---|---|
+| Langage / UI | Kotlin 2.0, Jetpack Compose (BOM 2024.12), Material 3, couleurs dynamiques (Android 12+) sinon palette Kura |
+| Caméra | CameraX 1.4 (`ImageAnalysis` YUV, 1280×720 visé, repli vers plus bas) |
+| Décodage | `com.google.zxing:core` 3.5 ([ADR 0002](../../docs/adr/0002-zxing-qr-et-1d.md)) |
+| File offline / cache | Room 2.6 (KSP) |
+| Synchro | WorkManager 2.10, contrainte réseau uniquement |
+| Réseau | OkHttp 4.12 + kotlinx.serialization |
+| Images | Coil 2.7 (+ SVG pour le serveur de démo), seulement si `display.show_image` |
+| Secrets | Clé AES-GCM dans l'AndroidKeyStore + SharedPreferences (pas d'EncryptedSharedPreferences, déprécié) |
+| Mot de passe de verrouillage | Argon2id au format PHC, vérifié avec Bouncy Castle (pur Java) |
+| Config distante | Signature Ed25519 vérifiée avec Bouncy Castle (`RemoteConfigVerifier`) |
+
+Aucune dépendance aux Google Play Services ni à ML Kit, aucune bibliothèque native, aucune télémétrie : publiable sur F-Droid.
+
+## Compatibilité
+
+- **minSdk 23 (Android 6.0)**, targetSdk/compileSdk 35. Toutes les bibliothèques retenues acceptent minSdk 21.
+- `java.time` (horodatages) via le désucrage (`coreLibraryDesugaring`). `java.util.Base64` (API 26) n'est pas utilisé : `:core` a son propre Base64.
+- API récentes protégées par `Build.VERSION.SDK_INT` : vibreur (`VibrationEffect` 26+, `VibratorManager` 31+), couleurs dynamiques (31+).
+- Caméra : arrière, sinon avant ; sans caméra, l'appli reste utilisable avec un scanner HID. Lampe affichée seulement si `hasFlashUnit`. Mise au point au toucher seulement si l'optique la gère (les caméras à focale fixe ne plantent pas).
+- Analyse : `STRATEGY_KEEP_ONLY_LATEST`, un seul fil de décodage, rien n'est décodé hors tentative, recadrage sur la zone de visée avant ZXing, tampons réutilisés, `TRY_HARDER` limité à la zone recadrée, `POSSIBLE_FORMATS` = `scan.symbologies`.
+- Légèreté : pas d'écran de démarrage, rien d'initialisé au lancement (WorkManager et Coil à la demande), pas de `largeHeap`, cache mémoire d'images à 10 %, cache disque 32 Mo, cache des fiches borné à 2 000 articles, pas d'animations décoratives.
+- Petits écrans : mises en page prévues pour 320 dp de large et une police à 130 % (boutons de pas sur deux rangées, bouton « Scanner » de 72 dp toujours en bas). Tablette / paysage (largeur ≥ 600 dp) : fiche ou session rafale à côté de la caméra, rail de navigation.
+- Accessibilité : descriptions TalkBack, résultats annoncés (`liveRegion`), cibles ≥ 48 dp, titres sémantiques.
+- Taille estimée de l'APK release (R8, non mesurée faute de SDK ici) : **5 à 7 Mo**. Ordre de grandeur après réduction : Compose + Material 3 ≈ 3 Mo, CameraX ≈ 0,6 Mo, OkHttp/Okio ≈ 0,5 Mo, WorkManager ≈ 0,4 Mo, Coil + SVG ≈ 0,4 Mo, ZXing ≈ 0,3 Mo, Room ≈ 0,3 Mo, kotlinx (serialization, coroutines) ≈ 0,4 Mo, Bouncy Castle (seulement Argon2/Ed25519 gardés) ≈ 0,1 Mo.
+
+Limites connues sur l'entrée de gamme :
+- ZXing est plus lent que ML Kit sur les codes abîmés ; sur caméra à focale fixe, les petits codes 1D doivent être tenus à 15–25 cm. Le délai `scan.trigger.timeout_ms` peut être allongé.
+- La vérification Argon2id (m = 19 456 Kio) prend ≈ 0,2 à 1 s et 19 Mo de RAM ; un hash plus lourd (ex. m = 65 536 de l'exemple complet) peut prendre plusieurs secondes. Les hashs au-delà de 256 Mio sont refusés.
+- Le déchiffrement d'un QR `KURA1E:` (PBKDF2, 120 000 itérations) prend ≈ 0,5 à 2 s.
+- Certains keystores constructeur sont défaillants : le secret n'est alors **pas** enregistré (message explicite), jamais stocké en clair.
+- Le cadre de visée est proportionnel à la largeur de l'image analysée ; avec le recadrage `FILL_CENTER` de l'aperçu, il peut être légèrement décalé par rapport à la zone réellement lue sur des capteurs au format inhabituel.
+
+## Comportements clés
+
+- **Lecture à l'appui** (ADR 0006) : rien n'est décodé avant « Scanner » ou une touche de volume ; arrêt au premier code ; nouvel appui = annulation ; délai → « Aucun code lu » + double vibration. Mode `continuous` par config.
+- **HID** : frappes rapides (≤ 50 ms entre touches) terminées par Entrée/Tab = une lecture ; une frappe humaine est ignorée. Fonctionne avec les gâchettes intégrées des téléphones durcis.
+- **Fiche** : `GET /items/{ref}` (ou `endpoints.get_item`), hors-ligne → dernière fiche en cache ; plusieurs +/− = **un seul** delta ; quantité saisie = `set`.
+- **Rafale** : un delta `±step` par lecture, même `session_id`, lignes regroupées, annuler (retrait si non envoyé, sinon inverse), correction d'une ligne.
+- **File** : Room + WorkManager ; `applied`/`duplicate`/`superseded` retirées, `rejected` gardées en erreur, réseau/5xx → nouvel essai selon `sync.retry_backoff_s` ; 401/403 → arrêt et message.
+- **HTTP en clair** : bloqué par l'appli tant que l'utilisateur n'a pas confirmé l'avertissement pour ce serveur (y compris pour les images).
+- **Import de config** : fichier JSON ou QR (`KURA1:` / `KURA1E:` + PIN) ; validation avec messages en français ; confirmation (adresse du serveur affichée) ; mot de passe exigé si la config courante est verrouillée.
+
+## État
+
+Fait et testé (`./gradlew :core:test`, dont un test de bout en bout contre `tools/mock-server` lancé avec `node`, ignoré si `node` est absent) :
+- [x] Lecture + validation de `kura-config.json` (messages clairs), QR de config clair et chiffré
+- [x] Parsing des codes `id` / `delimited` / `json`, préfixe, symbologies
+- [x] Machine à états du déclenchement, saisie HID, filtre « même code »
+- [x] Gabarits d'URL et de corps, `response_mapping`, fiche affichable
+- [x] Opérations, validation identique au serveur, accumulation +/− avant Valider
+- [x] Politique de synchro, backoff, lots, moteur de synchro ; session rafale
+- [x] Argon2id (vecteurs de libargon2), enveloppe de secret, signature Ed25519
+
+Écrit, **non compilé** (pas de SDK Android dans l'environnement de développement initial) :
+- [ ] `:app` — à compiler et essayer sur appareil : `./gradlew :app:assembleDebug`
+
+v0.1 : critères d'acceptation
+
+- [x] Charger une config depuis un fichier ou un QR de config ; refuser une config invalide avec un message clair. *(logique testée, écrans non essayés)*
+- [ ] Scanner QR, EAN-13, EAN-8, Code 128 (liste réglable par `scan.symbologies`). *(code écrit, à essayer)*
+- [ ] Mode `id` : `GET /items/{ref}` et affichage des champs `display.show_fields`. *(logique testée contre le mock server)*
+- [ ] Boutons de pas, champ quantité, Valider → une opération `delta` (somme des appuis) ou `set`. *(logique testée)*
+- [ ] Envoi `POST /operations` (ou endpoint + `request_mapping` de la config) et affichage du résultat. *(logique testée)*
+- [ ] Fonctionne de bout en bout contre `tools/mock-server`. *(côté `:core` : oui ; appli : à vérifier)*
+
+À faire ensuite :
+- Secret fourni par MDM (`token_ref: "mdm"`, *managed configurations*) : non implémenté (message affiché).
+- Config distante (`remote_config`) : vérification de signature prête dans `:core`, récupération périodique non branchée dans l'appli.
+- Tests instrumentés Android (Compose UI, Room, analyseur ZXing sur images de référence).
+- Traductions (seul le français est livré).

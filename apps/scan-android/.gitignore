@@ -1,0 +1,6 @@
+# Kura Scan (en plus du .gitignore racine : build/, .gradle/, local.properties)
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+/app/release/

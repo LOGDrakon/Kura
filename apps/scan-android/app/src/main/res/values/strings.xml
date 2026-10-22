@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kura Scan</string>
+
+    <!-- Navigation -->
+    <string name="nav_scan">Scan</string>
+    <string name="nav_queue">File d\'attente</string>
+    <string name="nav_settings">Réglages</string>
+    <string name="queue_badge_cd">%1$d opération(s) en attente</string>
+    <string name="back">Retour</string>
+    <string name="close">Fermer</string>
+    <string name="cancel">Annuler</string>
+    <string name="ok">OK</string>
+    <string name="confirm">Confirmer</string>
+    <string name="save">Enregistrer</string>
+
+    <!-- Premier lancement -->
+    <string name="onboarding_title">Bienvenue dans Kura Scan</string>
+    <string name="onboarding_body">Scannez le QR de configuration fourni par votre responsable pour relier l\'appli à votre serveur.</string>
+    <string name="onboarding_scan">Scannez le QR de configuration</string>
+    <string name="onboarding_file">Charger un fichier de configuration</string>
+    <string name="onboarding_hid_hint">Un scanner Bluetooth ou une gâchette intégrée peut aussi lire le QR.</string>
+
+    <!-- Permission caméra -->
+    <string name="camera_rationale_title">Accès à la caméra</string>
+    <string name="camera_rationale_body">Kura utilise la caméra uniquement pour lire les codes que vous visez. Aucune image n\'est enregistrée ni envoyée.</string>
+    <string name="camera_allow">Autoriser la caméra</string>
+    <string name="camera_denied">Caméra refusée. Vous pouvez l\'autoriser dans les paramètres Android, ou utiliser un scanner Bluetooth.</string>
+    <string name="camera_open_settings">Ouvrir les paramètres</string>
+    <string name="camera_unavailable">Aucune caméra utilisable sur cet appareil. Utilisez un scanner Bluetooth ou la gâchette intégrée.</string>
+
+    <!-- Écran Scan -->
+    <string name="scan_button">Scanner</string>
+    <string name="scan_button_armed">Lecture… (appuyer pour annuler)</string>
+    <string name="scan_button_cd">Scanner un code</string>
+    <string name="scan_button_armed_cd">Lecture en cours, appuyer pour annuler</string>
+    <string name="scan_continuous">Lecture continue</string>
+    <string name="scan_aim_hint">Visez le code dans le cadre</string>
+    <string name="scan_aim_cd">Zone de visée</string>
+    <string name="scan_no_code">Aucun code lu</string>
+    <string name="scan_cancelled">Lecture annulée</string>
+    <string name="scan_read">Code lu : %1$s</string>
+    <string name="torch_on">Allumer la lampe</string>
+    <string name="torch_off">Éteindre la lampe</string>
+    <string name="mode_item">Fiche</string>
+    <string name="mode_burst">Rafale</string>
+    <string name="direction_in">Entrée</string>
+    <string name="direction_out">Sortie</string>
+    <string name="mode_label">Mode de scan</string>
+    <string name="direction_label">Sens du mouvement</string>
+    <string name="offline_banner">Hors-ligne</string>
+    <string name="config_qr_detected">QR de configuration détecté</string>
+
+    <!-- Rafale -->
+    <string name="burst_title">Session rafale</string>
+    <string name="burst_empty">Chaque lecture enregistre un mouvement de %1$s.</string>
+    <string name="burst_line">%1$s × %2$d</string>
+    <string name="burst_feedback">%1$s · %2$s</string>
+    <string name="burst_undo">Annuler la dernière lecture</string>
+    <string name="burst_undone">Dernière lecture annulée</string>
+    <string name="burst_compensated">Dernière lecture déjà envoyée : mouvement inverse ajouté</string>
+    <string name="burst_new_session">Nouvelle session</string>
+    <string name="burst_edit_line">Corriger la quantité de %1$s</string>
+    <string name="burst_edit_label">Total pour cet article (négatif = sortie)</string>
+    <string name="burst_unknown_item">Article inconnu : %1$s</string>
+    <string name="burst_disabled">Le mode rafale est désactivé par la configuration.</string>
+
+    <!-- Fiche -->
+    <string name="item_loading">Recherche de l\'article…</string>
+    <string name="item_not_found">Article inconnu sur le serveur : %1$s</string>
+    <string name="item_offline_cache">Hors-ligne : dernières infos connues</string>
+    <string name="item_offline_nocache">Hors-ligne : aucune info en cache pour cet article. Le mouvement sera envoyé plus tard.</string>
+    <string name="item_quantity">Quantité</string>
+    <string name="item_quantity_after">Après validation : %1$s</string>
+    <string name="item_quantity_unknown">inconnue</string>
+    <string name="item_set_hint">Saisir la quantité réelle (inventaire)</string>
+    <string name="item_set_mode">Correction d\'inventaire</string>
+    <string name="item_pending_delta">Mouvement : %1$s</string>
+    <string name="item_step_plus_cd">Ajouter %1$d</string>
+    <string name="item_step_minus_cd">Retirer %1$d</string>
+    <string name="item_validate">Valider</string>
+    <string name="item_nothing">Aucun changement à envoyer</string>
+    <string name="item_image_cd">Photo de l\'article</string>
+    <string name="item_sent">Enregistré</string>
+    <string name="item_sent_quantity">Enregistré · stock %1$d</string>
+    <string name="item_queued">En file d\'attente : sera envoyé dès que possible</string>
+    <string name="item_rejected">Refusé par le serveur : %1$s</string>
+    <string name="item_superseded">Une correction plus récente est déjà enregistrée</string>
+    <string name="item_close">Fermer la fiche</string>
+    <string name="item_empty_pane">Scannez un article pour afficher sa fiche.</string>
+
+    <string name="field_name">Désignation</string>
+    <string name="field_location">Emplacement</string>
+    <string name="field_quantity">Stock</string>
+    <string name="field_unit">Unité</string>
+    <string name="field_ref">Référence</string>
+
+    <!-- File d'attente -->
+    <string name="queue_title">File d\'attente</string>
+    <string name="queue_empty">Tout est envoyé.</string>
+    <string name="queue_pending">En attente</string>
+    <string name="queue_error">En erreur</string>
+    <string name="queue_retry">Relancer</string>
+    <string name="queue_retry_cd">Relancer l\'envoi de %1$s</string>
+    <string name="queue_delete">Supprimer</string>
+    <string name="queue_delete_cd">Supprimer l\'opération %1$s</string>
+    <string name="queue_delete_confirm">Supprimer cette opération ? Le mouvement ne sera jamais envoyé.</string>
+    <string name="queue_send_now">Envoyer maintenant</string>
+    <string name="queue_attempts">%1$d essai(s) · %2$s</string>
+    <string name="queue_auth_failed">Authentification refusée par le serveur. Vérifiez le secret dans les Réglages.</string>
+    <string name="queue_op_delta">%1$s : %2$s</string>
+    <string name="queue_op_set">%1$s : = %2$d</string>
+    <string name="queue_manual_mode">Envoi manuel (config) : appuyez sur « Envoyer maintenant ».</string>
+    <string name="reason_invalid">opération invalide</string>
+    <string name="reason_unknown_item">article inconnu</string>
+    <string name="reason_forbidden">action interdite</string>
+    <string name="reason_conflict">conflit</string>
+    <string name="reason_server_error">erreur serveur</string>
+
+    <!-- Réglages -->
+    <string name="settings_title">Réglages</string>
+    <string name="settings_locked">Réglages verrouillés</string>
+    <string name="settings_unlock">Déverrouiller</string>
+    <string name="settings_password">Mot de passe</string>
+    <string name="settings_wrong_password">Mot de passe incorrect</string>
+    <string name="settings_checking">Vérification…</string>
+    <string name="settings_server">Serveur</string>
+    <string name="settings_company">Entreprise</string>
+    <string name="settings_no_config">Aucune configuration chargée.</string>
+    <string name="settings_auth">Authentification</string>
+    <string name="settings_auth_none">Aucune</string>
+    <string name="settings_secret_bearer">Jeton d\'accès</string>
+    <string name="settings_secret_basic">Mot de passe (utilisateur %1$s)</string>
+    <string name="settings_secret_api_key">Clé API (en-tête %1$s)</string>
+    <string name="settings_secret_mdm">Le secret est fourni par la gestion de flotte (MDM).</string>
+    <string name="settings_secret_set">Secret enregistré</string>
+    <string name="settings_secret_missing">Aucun secret enregistré</string>
+    <string name="settings_secret_saved">Secret enregistré de façon chiffrée</string>
+    <string name="settings_secret_clear">Effacer le secret</string>
+    <string name="settings_secret_error">Stockage sécurisé indisponible sur cet appareil : le secret n\'a PAS été enregistré. (%1$s)</string>
+    <string name="settings_identity">Identité</string>
+    <string name="settings_device_id">Identifiant de l\'appareil</string>
+    <string name="settings_user">Utilisateur</string>
+    <string name="settings_config">Configuration</string>
+    <string name="settings_load_file">Charger un fichier</string>
+    <string name="settings_scan_qr">Scanner un QR de configuration</string>
+    <string name="settings_scan_qr_hint">Allez sur l\'onglet Scan et visez le QR de configuration.</string>
+    <string name="settings_warnings">Avertissements de la configuration</string>
+    <string name="settings_lock">Verrouillage</string>
+    <string name="settings_lock_from_config">Mot de passe défini par la configuration.</string>
+    <string name="settings_lock_set">Définir un mot de passe de verrouillage</string>
+    <string name="settings_lock_new">Nouveau mot de passe (8 caractères min.)</string>
+    <string name="settings_lock_too_short">8 caractères minimum</string>
+    <string name="settings_lock_enabled">Verrouillage activé</string>
+    <string name="settings_lock_remove">Retirer le verrouillage</string>
+    <string name="settings_relock">Verrouiller maintenant</string>
+    <string name="settings_about">Kura Scan %1$s · aucune télémétrie</string>
+
+    <!-- Import de configuration -->
+    <string name="import_title">Nouvelle configuration</string>
+    <string name="import_server">Serveur : %1$s</string>
+    <string name="import_company">Entreprise : %1$s</string>
+    <string name="import_with_secret">Le secret d\'authentification est inclus et sera stocké chiffré.</string>
+    <string name="import_apply">Appliquer</string>
+    <string name="import_invalid_title">Configuration refusée</string>
+    <string name="import_pin_title">QR protégé</string>
+    <string name="import_pin_body">Saisissez le code PIN communiqué avec ce QR.</string>
+    <string name="import_pin_label">Code PIN</string>
+    <string name="import_wrong_pin">Code PIN incorrect</string>
+    <string name="import_applied">Configuration appliquée</string>
+    <string name="import_file_error">Fichier illisible</string>
+    <string name="import_locked">La configuration est verrouillée : saisissez le mot de passe pour la remplacer.</string>
+
+    <!-- HTTP en clair -->
+    <string name="cleartext_title">Connexion non chiffrée</string>
+    <string name="cleartext_body">Le serveur %1$s utilise HTTP : les données (et le secret) circulent en clair. À réserver à un réseau local de test.</string>
+    <string name="cleartext_accept">Je comprends, continuer</string>
+
+    <!-- Identifiant utilisateur -->
+    <string name="user_prompt_title">Qui scanne ?</string>
+    <string name="user_prompt_body">Votre identifiant est envoyé avec chaque mouvement.</string>
+</resources>

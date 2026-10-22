@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { authHeaders, checkConfig, defaultConfig, expandPath, joinUrl, pruneConfig, stripDefaults } from './config';
 import { base64url, buildConfigQr, encryptPayload, fromBase64url, hashPassword } from './config-qr';
 
-const valid = () => ({ ...defaultConfig('Atelier'), server: { ...defaultConfig().server, base_url: 'https://gmao.fr/api' } });
+const valid = (): Record<string, any> => ({ ...defaultConfig('Atelier'), server: { ...defaultConfig().server, base_url: 'https://gmao.fr/api' } });
 
 describe('config', () => {
   it('la config par défaut, une fois l’URL saisie, est valide', () => {
@@ -62,5 +62,20 @@ describe('QR de configuration', () => {
 
   it('mot de passe : argon2id au format PHC', async () => {
     expect(await hashPassword('secret123')).toMatch(/^\$argon2id\$v=19\$m=19456,t=2,p=1\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}$/);
+  });
+});
+
+describe('vecteurs de spec/config-qr.md', () => {
+  const hex = (h: string) => Uint8Array.from(h.match(/../g)!.map((b) => parseInt(b, 16)));
+
+  it('§4.1 KURA1 en clair', async () => {
+    const qr = await buildConfigQr({ kura_config_version: 1, server: { base_url: 'http://10.0.2.2:8787' }, scan: { format: 'id' } });
+    expect(qr).toBe('KURA1:eyJjb25maWciOnsia3VyYV9jb25maWdfdmVyc2lvbiI6MSwic2VydmVyIjp7ImJhc2VfdXJsIjoiaHR0cDovLzEwLjAuMi4yOjg3ODcifSwic2NhbiI6eyJmb3JtYXQiOiJpZCJ9fX0');
+  });
+
+  it('§4.2 KURA1E chiffré', async () => {
+    const payload = '{"config":{"kura_config_version":1,"server":{"base_url":"https://gmao.example.fr/api","auth":{"type":"bearer"}},"scan":{"format":"id"}},"secret":"jeton-de-démo"}';
+    const bytes = await encryptPayload(new TextEncoder().encode(payload), '482913', hex('000102030405060708090a0b0c0d0e0f'), hex('101112131415161718191a1b'));
+    expect('KURA1E:' + base64url(bytes)).toBe('KURA1E:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaG03Z2DfWlrQsxWg1ahW1gxAi655SsboV_5KQ-U899HgrnDDmMaqtV16WA5IuZB4FTnRBvRlmTPOYXiEL9nQ4fJLU8VrixdrWEZSe_abTvSMbKYqK8ev5LgDUbx9Cf83qTeEHwZDZVVavO4J7SmMUzoMXKW4E_H5m90_8kjBon6oL8Zx7yhwhFtwhg4yI8aDNnWUejjgNr3e-X-mR9X57pPMeZac3cTkWiXkWPypjzoCEmbg');
   });
 });

@@ -13,7 +13,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.net.URI
-import java.util.Base64
+import dev.kura.core.util.Base64Codec
 
 /** Opération en attente d'envoi, avec les champs scannés (variables supplémentaires de `request_mapping`). */
 data class OutgoingOperation(val op: Operation, val extras: Map<String, String> = emptyMap())
@@ -43,7 +43,7 @@ class KuraRequests(
             AuthType.BEARER -> mapOf("Authorization" to "Bearer $s")
             AuthType.BASIC -> {
                 val raw = "${auth.username.orEmpty()}:$s".toByteArray(Charsets.UTF_8)
-                mapOf("Authorization" to "Basic " + Base64.getEncoder().encodeToString(raw))
+                mapOf("Authorization" to "Basic " + Base64Codec.encode(raw))
             }
             AuthType.API_KEY -> mapOf(auth.header to s)
         }

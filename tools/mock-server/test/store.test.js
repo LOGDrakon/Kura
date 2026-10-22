@@ -86,6 +86,7 @@ test('rejets : validation et article inconnu', () => {
   assert.equal(s.apply(op('set', -1, '2026-10-22T10:00:00Z')).reason, 'invalid');
   assert.equal(s.apply(op('delta', 1.5, '2026-10-22T10:00:00Z')).reason, 'invalid');
   assert.equal(s.apply(op('delta', 1, 'hier')).reason, 'invalid');
+  assert.equal(s.apply(op('delta', 1, '2026-10-22')).reason, 'invalid');
   assert.equal(s.apply({ ...op('delta', 1, '2026-10-22T10:00:00Z'), op_id: 'abc' }).reason, 'invalid');
   assert.equal(s.apply(op('delta', 1, '2026-10-22T10:00:00Z', { item_id: 'ZZZ' })).reason, 'unknown_item');
   assert.equal(s.getItem('A').quantity, 10);

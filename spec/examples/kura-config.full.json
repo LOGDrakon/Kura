@@ -48,7 +48,7 @@
   "sync": { "mode": "auto", "batch": false, "retry_backoff_s": [5, 30, 120] },
   "security": {
     "config_locked": true,
-    "config_password_hash": "$argon2id$v=19$m=65536,t=3,p=4$c2FsdHNhbHRzYWx0$5u0yG9pXq1o7m8Ww8d0mPq2rWkV8sF5aYbC3dE4fG6h",
+    "config_password_hash": "$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$Exemple0NeCorrespondAAucunMotDePasse0000000",
     "require_user": true
   },
   "remote_config": { "enabled": true, "url": "/kura/config", "auto_update": false,

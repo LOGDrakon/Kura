@@ -32,6 +32,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Exemples de config et serveur de référence, partagés avec le reste du dépôt.
+    systemProperty("kura.repoRoot", rootProject.projectDir.resolve("../..").canonicalPath)
     testLogging {
         events("failed", "skipped")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

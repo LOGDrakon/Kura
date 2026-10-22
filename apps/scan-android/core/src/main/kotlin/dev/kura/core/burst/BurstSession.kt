@@ -67,6 +67,19 @@ class BurstSession(
         return BurstEvent.Created(op, lineFor(itemId))
     }
 
+    /** Prochaine opération qu'annulerait [undo], s'il y en a une. */
+    val lastUndoable: Operation? get() = undoStack.lastOrNull()
+
+    /**
+     * Cas limite de [UndoAction.RemoveQueued] : l'opération est partie entre-temps (la suppression dans la file
+     * n'a rien trouvé). L'appli met alors [inverse] en file et le signale ici : la session garde l'original et l'inverse.
+     */
+    fun restoreAsSent(original: Operation, inverse: Operation) {
+        require(inverse.type == OpType.DELTA && inverse.value == -original.value) { "inverse incohérent" }
+        ops += original
+        ops += inverse
+    }
+
     fun setLabel(itemId: String, label: String) {
         labels[itemId] = label
     }

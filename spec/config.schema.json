@@ -7,6 +7,7 @@
   "required": ["kura_config_version", "server", "scan"],
   "additionalProperties": false,
   "properties": {
+    "$schema": { "type": "string", "description": "Lien vers ce schéma, pour l'autocomplétion dans les éditeurs." },
     "kura_config_version": { "const": 1 },
     "company": { "type": "string", "maxLength": 120 },
 
@@ -47,7 +48,7 @@
         },
         "delimiter": { "type": "string", "minLength": 1, "maxLength": 4, "default": ";" },
         "fields": {
-          "description": "Noms des champs, dans l'ordre pour 'delimited', ou clés attendues pour 'json'.",
+          "description": "Noms des champs, dans l'ordre pour 'delimited', ou clés attendues pour 'json'. Doit contenir id_field.",
           "type": "array",
           "items": { "$ref": "#/$defs/field_name" },
           "uniqueItems": true
@@ -88,7 +89,7 @@
       "allOf": [
         {
           "if": { "properties": { "format": { "enum": ["delimited", "json"] } }, "required": ["format"] },
-          "then": { "required": ["fields", "id_field"] }
+          "then": { "required": ["fields"] }
         }
       ]
     },

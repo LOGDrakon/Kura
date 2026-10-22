@@ -4,7 +4,7 @@ import org.bouncycastle.crypto.generators.Argon2BytesGenerator
 import org.bouncycastle.crypto.params.Argon2Parameters
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.util.Base64
+import dev.kura.core.util.Base64Codec
 
 /**
  * Hash argon2id au format PHC (`$argon2id$v=19$m=19456,t=2,p=1$<sel>$<hash>`, base64 sans remplissage),
@@ -27,13 +27,11 @@ object Argon2Phc {
     private const val MAX_ITERATIONS = 20
     private const val MAX_PARALLELISM = 16
 
-    private val B64_ENC = Base64.getEncoder().withoutPadding()
-    private val B64_DEC = Base64.getDecoder()
 
     fun hash(password: String, params: Params = Params(), salt: ByteArray = randomSalt()): String {
         val out = derive(password, salt, params)
         return "\$argon2id\$v=${params.version}\$m=${params.memoryKiB},t=${params.iterations},p=${params.parallelism}" +
-            "\$${B64_ENC.encodeToString(salt)}\$${B64_ENC.encodeToString(out)}"
+            "\$${Base64Codec.encode(salt, padding = false)}\$${Base64Codec.encode(out, padding = false)}"
     }
 
     /** Vérifie un mot de passe. Retourne `false` (sans exception) si le hash est mal formé. */
@@ -72,7 +70,7 @@ object Argon2Phc {
     }
 
     private fun decode(s: String): ByteArray? = try {
-        B64_DEC.decode(s.trimEnd('='))
+        Base64Codec.decode(s)
     } catch (e: IllegalArgumentException) {
         null
     }

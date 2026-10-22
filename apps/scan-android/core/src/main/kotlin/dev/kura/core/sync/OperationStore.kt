@@ -43,7 +43,7 @@ class InMemoryOperationStore : OperationStore {
     val all: List<QueuedOperation> get() = synchronized(items) { items.values.toList() }
 
     override suspend fun enqueue(op: Operation, extras: Map<String, String>) {
-        synchronized(items) { items.putIfAbsent(op.opId, QueuedOperation(op, extras)) }
+        synchronized(items) { if (op.opId !in items) items[op.opId] = QueuedOperation(op, extras) }
     }
 
     override suspend fun due(nowMs: Long, limit: Int): List<QueuedOperation> = synchronized(items) {

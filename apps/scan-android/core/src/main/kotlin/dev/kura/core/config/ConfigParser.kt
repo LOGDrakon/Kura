@@ -158,10 +158,11 @@ object ConfigParser {
             if (format == "delimited" || format == "json") {
                 val label = if (format == "delimited") "délimité" else "JSON"
                 if (o["fields"] == null) err("scan", "le format $label exige la liste « fields » (noms des champs du code).")
-                if (o["id_field"] == null) err("scan", "le format $label exige « id_field » (champ contenant l'identifiant).")
                 if (fields != null && fields.isEmpty()) err("scan.fields", "la liste ne peut pas être vide pour le format $label.")
-                if (fields != null && idField != null && fields.isNotEmpty() && idField !in fields) {
-                    err("scan.id_field", "« $idField » ne fait pas partie de « fields » (${fields.joinToString(", ")}).")
+                // id_field vaut « ref » par défaut (schéma) ; il doit figurer dans fields.
+                val id = idField ?: "ref"
+                if (fields != null && fields.isNotEmpty() && id !in fields) {
+                    err("scan.id_field", "« $id » ne fait pas partie de « fields » (${fields.joinToString(", ")}).")
                 }
             }
             return buildSet {

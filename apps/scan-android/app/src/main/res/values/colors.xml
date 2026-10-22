@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="kura_background">#FFF7F9F9</color>
+    <color name="kura_primary">#FF0F6E6E</color>
+    <color name="kura_launcher_background">#FF0F6E6E</color>
+    <color name="kura_launcher_foreground">#FFFFFFFF</color>
+</resources>

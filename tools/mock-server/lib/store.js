@@ -5,6 +5,7 @@
 //   quantité = set le plus récent (ou stock initial) + somme des delta postérieurs à ce set.
 // Le calcul est refait à partir du journal, donc l'ordre d'arrivée des opérations n'a pas d'effet.
 
+const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function compareSet(a, b) {
@@ -22,8 +23,8 @@ function validate(op) {
   if (!Number.isInteger(op.value)) return 'value doit être un entier';
   if (op.type === 'delta' && op.value === 0) return 'un delta ne peut pas être nul';
   if (op.type === 'set' && op.value < 0) return 'un set ne peut pas être négatif';
-  if (typeof op.client_ts !== 'string' || Number.isNaN(Date.parse(op.client_ts))) {
-    return 'client_ts doit être une date ISO 8601';
+  if (typeof op.client_ts !== 'string' || !ISO_TS_RE.test(op.client_ts) || Number.isNaN(Date.parse(op.client_ts))) {
+    return 'client_ts doit être une date ISO 8601 avec fuseau (ex. 2026-10-22T13:55:12Z)';
   }
   return null;
 }

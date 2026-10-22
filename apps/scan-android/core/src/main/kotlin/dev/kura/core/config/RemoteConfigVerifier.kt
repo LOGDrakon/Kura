@@ -2,7 +2,7 @@ package dev.kura.core.config
 
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
-import java.util.Base64
+import dev.kura.core.util.Base64Codec
 
 /**
  * Vérifie la signature Ed25519 d'une config distante (`GET /config`) avec `remote_config.signing_public_key`
@@ -15,13 +15,13 @@ object RemoteConfigVerifier {
     fun verify(config: String, signatureB64: String?, publicKeySpkiB64: String?): Boolean {
         if (signatureB64.isNullOrBlank() || publicKeySpkiB64.isNullOrBlank()) return false
         return try {
-            val spki = Base64.getDecoder().decode(publicKeySpkiB64.trim())
+            val spki = Base64Codec.decode(publicKeySpkiB64.trim())
             val raw = when {
                 spki.size == 44 && spki.copyOfRange(0, 12).contentEquals(ED25519_SPKI_PREFIX) -> spki.copyOfRange(12, 44)
                 spki.size == 32 -> spki // clé brute tolérée
                 else -> return false
             }
-            val sig = Base64.getDecoder().decode(signatureB64.trim())
+            val sig = Base64Codec.decode(signatureB64.trim())
             val signer = Ed25519Signer()
             signer.init(false, Ed25519PublicKeyParameters(raw, 0))
             val data = config.toByteArray(Charsets.UTF_8)

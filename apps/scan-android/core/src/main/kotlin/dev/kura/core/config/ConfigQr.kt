@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
-import java.util.Base64
+import dev.kura.core.util.Base64Codec
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.spec.GCMParameterSpec
@@ -42,8 +42,6 @@ object ConfigQr {
     private const val TAG_BITS = 128
 
     private val json = Json { ignoreUnknownKeys = true }
-    private val B64URL_ENC = Base64.getUrlEncoder().withoutPadding()
-    private val B64URL_DEC = Base64.getUrlDecoder()
 
     fun isConfigQr(text: String): Boolean {
         val t = text.trim()
@@ -119,13 +117,19 @@ object ConfigQr {
         val plain = JsonObject(payload).toString().toByteArray(Charsets.UTF_8)
         if (pin.isNullOrEmpty()) {
             require(secret == null) { "un secret ne peut être inclus que dans un QR chiffré (PIN)" }
-            return PLAIN_PREFIX + B64URL_ENC.encodeToString(plain)
+            return PLAIN_PREFIX + Base64Codec.encodeUrl(plain)
         }
-        require(salt.size == SALT_LEN && iv.size == IV_LEN)
+        return encryptRaw(plain, pin, salt, iv)
+    }
+
+    /** Chiffre des octets de charge utile déjà sérialisés (vecteurs de test, interopérabilité avec Studio). */
+    fun encryptRaw(plain: ByteArray, pin: String, salt: ByteArray, iv: ByteArray): String {
+        require(pin.isNotEmpty()) { "PIN vide" }
+        require(salt.size == SALT_LEN && iv.size == IV_LEN) { "sel de 16 octets et IV de 12 octets attendus" }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(deriveKey(pin, salt), "AES"), GCMParameterSpec(TAG_BITS, iv))
         val ct = cipher.doFinal(plain)
-        return ENCRYPTED_PREFIX + B64URL_ENC.encodeToString(salt + iv + ct)
+        return ENCRYPTED_PREFIX + Base64Codec.encodeUrl(salt + iv + ct)
     }
 
     /** PBKDF2-HMAC-SHA256 sur les octets UTF-8 du PIN (implémenté sur `Mac` pour un comportement identique partout). */
@@ -155,7 +159,7 @@ object ConfigQr {
     }
 
     private fun b64(s: String): ByteArray? = try {
-        B64URL_DEC.decode(s.trim().trimEnd('='))
+        Base64Codec.decodeUrl(s.trim())
     } catch (e: IllegalArgumentException) {
         null
     }

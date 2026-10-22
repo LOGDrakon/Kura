@@ -73,7 +73,7 @@ class ScanParser(private val config: ScanConfig) {
         if (trimmed.length > MAX_ID_LENGTH) return ParseOutcome.Rejected("Identifiant trop long (128 caractères max).")
         val all = LinkedHashMap(fields)
         all[config.idField] = trimmed
-        all.putIfAbsent("ref", trimmed)
+        if ("ref" !in all) all["ref"] = trimmed
         return ParseOutcome.Ok(ScannedCode(trimmed, all, raw))
     }
 

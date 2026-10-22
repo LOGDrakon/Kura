@@ -139,7 +139,8 @@ paths:
       operationId: getConfig
       summary: Config à jour (optionnel)
       description: |
-        Renvoie la config et sa signature Ed25519 (sur les octets exacts de `config`, encodé en JSON).
+        Renvoie la config sous forme de **chaîne** JSON et sa signature Ed25519, calculée sur les
+        octets UTF-8 de cette chaîne, tels quels (aucune re-sérialisation côté appli).
         L'appli refuse une config dont la signature ne correspond pas à `remote_config.signing_public_key`.
       responses:
         '200':

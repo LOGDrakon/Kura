@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTPS par défaut. Le HTTP en clair est autorisé au niveau système UNIQUEMENT pour pouvoir joindre
+  un serveur de test sur le réseau local (adresses IP non connues à l'avance) ; l'appli le bloque
+  tant que l'utilisateur n'a pas confirmé l'avertissement « connexion non chiffrée » pour ce serveur
+  (voir OkHttpTransport). Seules les autorités de certification du système sont acceptées.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -128,7 +128,7 @@
     qrError = '';
     qrBusy = true;
     try {
-      if (qrSecret && qrPin.length < 6) throw new Error('Un code PIN d’au moins 6 caractères est nécessaire pour protéger le jeton.');
+      if (qrSecret && !/^\d{6,}$/.test(qrPin)) throw new Error('Un code PIN d’au moins 6 chiffres est nécessaire pour protéger le secret.');
       qrPayload = await buildConfigQr(stripDefaults(output), qrSecret ? { secret: qrSecret, pin: qrPin } : undefined);
       if (new TextEncoder().encode(qrPayload).length > MAX_QR_BYTES) {
         throw new Error('Configuration trop volumineuse pour un QR code lisible : retirez les options avancées ou utilisez le fichier.');
@@ -349,7 +349,7 @@
       {#if cfg.server.auth?.type && cfg.server.auth.type !== 'none'}
         <div class="row">
           <label class="field"><span>Inclure le secret (optionnel)</span><input type="password" autocomplete="off" bind:value={qrSecret} /></label>
-          {#if qrSecret}<label class="field"><span>Code PIN (6+ car.)</span><input type="password" autocomplete="off" bind:value={qrPin} /></label>{/if}
+          {#if qrSecret}<label class="field"><span>Code PIN (6 chiffres ou plus)</span><input type="password" inputmode="numeric" autocomplete="off" bind:value={qrPin} /></label>{/if}
         </div>
         {#if qrSecret}<p class="hint">Le secret est chiffré par le PIN (AES-256). Communiquez le PIN séparément, jamais sur la même feuille.</p>{/if}
       {/if}
