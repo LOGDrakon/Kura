@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -89,7 +90,6 @@ fun InputDialog(
     var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(0, initial.length))) }
     // Le champ prend le focus et le clavier s'ouvre aussitôt : un appui de moins par saisie (inventaires en série).
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -121,6 +121,12 @@ fun InputDialog(
                     keyboardActions = KeyboardActions(onDone = { if (validate(value.text) && !busy) onConfirm(value.text) }),
                     modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
+                // Ici, et non au niveau de la boîte : la fenêtre du dialogue doit avoir composé le champ
+                // avant la demande de focus (sinon FocusRequester n'est pas encore relié et l'appli plante).
+                LaunchedEffect(Unit) {
+                    withFrameNanos { }
+                    runCatching { focus.requestFocus() }
+                }
             }
         },
         confirmButton = {
