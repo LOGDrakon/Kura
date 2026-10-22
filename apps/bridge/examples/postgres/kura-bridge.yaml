@@ -1,0 +1,47 @@
+# Kura Bridge sur PostgreSQL. Démarrer : kura-bridge -c kura-bridge.yaml
+# Référence complète : docs/guides/bridge.md
+listen: ":8787"
+
+auth:
+  type: bearer
+  tokens: ["${KURA_TOKEN}"]          # export KURA_TOKEN=$(openssl rand -hex 24)
+
+# Origines autorisées à appeler le Bridge depuis un navigateur (Kura Studio). "*" : toutes.
+cors_origins: ["*"]
+
+database:
+  driver: postgres
+  # Utilisateur dédié, avec seulement les droits nécessaires (voir docs/recipes/postgres.md).
+  dsn: "postgres://kura:${KURA_DB_PASSWORD}@localhost:5432/gmao?sslmode=disable"
+
+items:
+  quantity_column: quantity          # nom de la colonne du stock dans le résultat de get_item
+
+queries:
+  # Un article. Les noms de colonnes renvoyés deviennent les champs {name}, {location}… des étiquettes.
+  get_item: |
+    SELECT code AS ref, designation AS name, emplacement AS location, service,
+           unite AS unit, stock AS quantity, modifie_le AS updated_at
+    FROM articles
+    WHERE code = :ref
+
+  # Liste pour Kura Studio : recherche, filtre de date, pagination.
+  list_items: |
+    SELECT code AS ref, designation AS name, emplacement AS location, service,
+           unite AS unit, stock AS quantity, modifie_le AS updated_at
+    FROM articles
+    WHERE (:q = '' OR lower(code) LIKE :q_like OR lower(designation) LIKE :q_like)
+      AND modifie_le >= :updated_since
+    ORDER BY modifie_le DESC, code
+    LIMIT :limit OFFSET :offset
+
+  # Mouvement : stock = stock + :value (négatif pour une sortie).
+  apply_delta: UPDATE articles SET stock = stock + :value WHERE code = :ref
+
+  # Inventaire : stock = :value (déjà corrigé des mouvements faits après l'inventaire).
+  apply_set: UPDATE articles SET stock = :value WHERE code = :ref
+
+  # Facultatif : tracer le mouvement dans la GMAO, dans la même transaction.
+  after_apply: |
+    INSERT INTO mouvements (code, sens, quantite, utilisateur, appareil, date_mouvement, op_id)
+    VALUES (:ref, :type, :sent_value, :user, :device_id, :client_ts, :op_id)

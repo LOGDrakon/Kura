@@ -1,0 +1,38 @@
+# Kura Bridge sur un fichier SQLite : le plus simple pour un essai.
+#   sqlite3 gmao.db < schema.sql      (crée la base de démonstration)
+#   kura-bridge -c kura-bridge.yaml
+listen: ":8787"
+
+# Essai local uniquement : pas d'authentification. En production : type bearer + tokens.
+auth:
+  type: none
+
+cors_origins: ["*"]
+
+database:
+  driver: sqlite
+  dsn: "file:gmao.db"                # chemin relatif au dossier de ce fichier
+
+queries:
+  get_item: |
+    SELECT code AS ref, designation AS name, emplacement AS location, service,
+           unite AS unit, stock AS quantity, modifie_le AS updated_at
+    FROM articles
+    WHERE code = :ref
+
+  # SQLite stocke ici les dates en texte ISO 8601 : on compare donc avec :updated_since_iso.
+  list_items: |
+    SELECT code AS ref, designation AS name, emplacement AS location, service,
+           unite AS unit, stock AS quantity, modifie_le AS updated_at
+    FROM articles
+    WHERE (:q = '' OR lower(code) LIKE :q_like OR lower(designation) LIKE :q_like)
+      AND modifie_le >= :updated_since_iso
+    ORDER BY modifie_le DESC, code
+    LIMIT :limit OFFSET :offset
+
+  apply_delta: UPDATE articles SET stock = stock + :value WHERE code = :ref
+  apply_set: UPDATE articles SET stock = :value WHERE code = :ref
+
+  after_apply: |
+    INSERT INTO mouvements (code, sens, quantite, utilisateur, appareil, date_mouvement, op_id)
+    VALUES (:ref, :type, :sent_value, :user, :device_id, :client_ts_iso, :op_id)

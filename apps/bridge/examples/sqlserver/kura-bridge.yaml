@@ -1,0 +1,39 @@
+# Kura Bridge sur Microsoft SQL Server. Démarrer : kura-bridge.exe -c kura-bridge.yaml
+# Référence complète : docs/guides/bridge.md
+listen: ":8787"
+
+auth:
+  type: bearer
+  tokens: ["${KURA_TOKEN}"]
+
+cors_origins: ["*"]
+
+database:
+  driver: sqlserver
+  # Instance nommée : sqlserver://kura:motdepasse@serveur/SQLEXPRESS?database=GMAO
+  # Authentification Windows non prise en charge : créez un login SQL dédié (docs/recipes/sqlserver.md).
+  dsn: "sqlserver://kura:${KURA_DB_PASSWORD}@localhost:1433?database=GMAO&encrypt=disable"
+
+queries:
+  get_item: |
+    SELECT code AS ref, designation AS name, emplacement AS location, service,
+           unite AS unit, stock AS quantity, modifie_le AS updated_at
+    FROM articles
+    WHERE code = :ref
+
+  # SQL Server : pagination par OFFSET … FETCH (ORDER BY obligatoire).
+  list_items: |
+    SELECT code AS ref, designation AS name, emplacement AS location, service,
+           unite AS unit, stock AS quantity, modifie_le AS updated_at
+    FROM articles
+    WHERE (:q = '' OR lower(code) LIKE :q_like OR lower(designation) LIKE :q_like)
+      AND modifie_le >= :updated_since
+    ORDER BY modifie_le DESC, code
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+
+  apply_delta: UPDATE articles SET stock = stock + :value WHERE code = :ref
+  apply_set: UPDATE articles SET stock = :value WHERE code = :ref
+
+  after_apply: |
+    INSERT INTO mouvements (code, sens, quantite, utilisateur, appareil, date_mouvement, op_id)
+    VALUES (:ref, :type, :sent_value, :user, :device_id, :client_ts, :op_id)

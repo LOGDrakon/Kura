@@ -68,3 +68,57 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Tests de la logique de Kura Scan (sans SDK Android)
         run: ./gradlew :core:test
+
+  bridge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/bridge
+    # Les exemples de examples/<moteur> sont testés sur de vraies bases.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kura
+          POSTGRES_PASSWORD: kura
+          POSTGRES_DB: gmao
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U kura" --health-interval 5s --health-retries 20
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: kura
+          MYSQL_DATABASE: gmao
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -pkura" --health-interval 5s --health-retries 30
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: Kura_Test_2026!
+        ports: ['1433:1433']
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Kura_Test_2026!' -Q 'SELECT 1'"
+          --health-interval 10s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/bridge/go.mod
+          cache-dependency-path: apps/bridge/go.sum
+      - name: Format
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - run: go vet ./...
+      - name: Tests (SQLite, PostgreSQL, MySQL, SQL Server, script)
+        run: go test -race ./...
+        env:
+          KURA_TEST_POSTGRES_DSN: postgres://kura:kura@localhost:5432/gmao?sslmode=disable
+          KURA_TEST_MYSQL_DSN: root:kura@tcp(127.0.0.1:3306)/gmao
+          KURA_TEST_SQLSERVER_DSN: sqlserver://sa:Kura_Test_2026!@localhost:1433?database=master&encrypt=disable
+      - name: Compilation pour Linux, Windows et macOS
+        run: |
+          for target in linux/amd64 linux/arm64 windows/amd64 darwin/arm64; do
+            GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/kura-bridge
+          done

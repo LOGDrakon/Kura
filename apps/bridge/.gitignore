@@ -1,0 +1,4 @@
+examples/*/gmao.db
+examples/*/kura-journal.db*
+examples/*/*.key
+dist/

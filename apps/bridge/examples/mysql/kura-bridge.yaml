@@ -1,0 +1,38 @@
+# Kura Bridge sur MySQL ou MariaDB. Démarrer : kura-bridge -c kura-bridge.yaml
+# Référence complète : docs/guides/bridge.md
+listen: ":8787"
+
+auth:
+  type: bearer
+  tokens: ["${KURA_TOKEN}"]
+
+cors_origins: ["*"]
+
+database:
+  driver: mysql
+  # Format : utilisateur:motdepasse@tcp(hôte:port)/base. Le Bridge ajoute parseTime=true et clientFoundRows=true.
+  # Les dates sont lues et écrites en UTC (loc=UTC par défaut).
+  dsn: "kura:${KURA_DB_PASSWORD}@tcp(localhost:3306)/gmao"
+
+queries:
+  get_item: |
+    SELECT code AS ref, designation AS name, emplacement AS location, service,
+           unite AS unit, stock AS quantity, modifie_le AS updated_at
+    FROM articles
+    WHERE code = :ref
+
+  list_items: |
+    SELECT code AS ref, designation AS name, emplacement AS location, service,
+           unite AS unit, stock AS quantity, modifie_le AS updated_at
+    FROM articles
+    WHERE (:q = '' OR lower(code) LIKE :q_like OR lower(designation) LIKE :q_like)
+      AND modifie_le >= :updated_since
+    ORDER BY modifie_le DESC, code
+    LIMIT :limit OFFSET :offset
+
+  apply_delta: UPDATE articles SET stock = stock + :value WHERE code = :ref
+  apply_set: UPDATE articles SET stock = :value WHERE code = :ref
+
+  after_apply: |
+    INSERT INTO mouvements (code, sens, quantite, utilisateur, appareil, date_mouvement, op_id)
+    VALUES (:ref, :type, :sent_value, :user, :device_id, :client_ts, :op_id)

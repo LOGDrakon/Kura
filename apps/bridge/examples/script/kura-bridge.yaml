@@ -1,0 +1,15 @@
+# Kura Bridge relié à un script (ici : un fichier CSV). Lancer : kura-bridge -c kura-bridge.yaml
+listen: ":8787"
+auth:
+  type: bearer
+  tokens: ["${KURA_TOKEN}"]   # export KURA_TOKEN=$(openssl rand -hex 24)
+
+script:
+  command: ["python3", "adaptateur.py"]   # Windows : ["py", "adaptateur.py"]
+  env:
+    KURA_STOCK_CSV: stock.csv
+  timeout_s: 15
+
+# Le journal des opérations (idempotence, inventaires) est tenu par le Bridge dans ce fichier.
+journal:
+  file: kura-journal.db
