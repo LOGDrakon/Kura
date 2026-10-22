@@ -74,7 +74,7 @@ func usage() {
   kura-bridge keygen [-o kura-signing.key]   crée la clé de signature de la config distante
   kura-bridge version
 
-Documentation : https://github.com/LOGDrakon/Kura/blob/main/docs/guides/bridge.md
+Documentation : https://github.com/LOGDrakon/Kura/blob/HEAD/docs/guides/bridge.md
 `)
 }
 

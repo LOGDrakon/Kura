@@ -141,7 +141,7 @@ jobs:
 
           - `kura-scan-*.apk` : Kura Scan, à installer sur les téléphones Android 6.0 et plus.
           - `kura-studio.html` : Kura Studio, à ouvrir dans un navigateur (aucune installation).
-          - `kura-bridge_*` : Kura Bridge pour Linux, Windows et macOS ([guide](https://github.com/LOGDrakon/Kura/blob/main/docs/guides/bridge.md)).
+          - `kura-bridge_*` : Kura Bridge pour Linux, Windows et macOS ([guide](https://github.com/LOGDrakon/Kura/blob/HEAD/docs/guides/bridge.md)).
           - `kura-mock-server-*.zip` : serveur de démonstration (Node.js 20 et plus).
           - `SHA256SUMS` : sommes de contrôle.
           EOF
