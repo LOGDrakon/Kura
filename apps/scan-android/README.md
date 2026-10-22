@@ -16,7 +16,7 @@ Appli de scan : lit un code QR ou 1D, affiche la fiche, envoie des mouvements au
 | Réseau | OkHttp + kotlinx.serialization |
 | Images | Coil (cache disque) |
 | Secrets | Android Keystore |
-| minSdk / targetSdk | 26 / dernière stable |
+| minSdk / targetSdk | 23 / dernière stable ([ADR 0007](../../docs/adr/0007-compatibilite-android.md)) |
 
 Aucune dépendance aux Google Play Services : l'appli doit pouvoir être publiée sur F-Droid.
 
