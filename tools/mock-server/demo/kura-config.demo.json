@@ -1,0 +1,30 @@
+{
+  "kura_config_version": 1,
+  "company": "Démo Kura",
+  "server": {
+    "base_url": "http://127.0.0.1:8787",
+    "auth": { "type": "none" },
+    "timeout_ms": 8000
+  },
+  "scan": {
+    "symbologies": ["qr_code", "ean_13", "code_128"],
+    "format": "id"
+  },
+  "display": {
+    "show_fields": ["name", "brand", "location", "quantity"],
+    "field_labels": { "name": "Désignation", "brand": "Marque", "location": "Emplacement", "quantity": "Stock" },
+    "show_image": true,
+    "image_url": "/items/{ref}/image",
+    "step_buttons": [1, 10],
+    "allow_set": true
+  },
+  "burst": {
+    "enabled": true,
+    "default_direction": "out",
+    "default_step": 1,
+    "same_code_cooldown_ms": 1500,
+    "verify_item": true
+  },
+  "sync": { "mode": "auto", "batch": true, "retry_backoff_s": [5, 30, 120] },
+  "security": { "config_locked": false, "require_user": true }
+}

@@ -107,3 +107,31 @@ test('GET /items : recherche, nouveautés, pagination, CORS', async (t) => {
   assert.equal(preflight.status, 204);
   assert.match(preflight.headers.get('access-control-allow-headers'), /Authorization/);
 });
+
+test('KURA_MOCK_DB : stock et articles survivent à un redémarrage', async (t) => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kura-mock-'));
+  const dbFile = path.join(dir, 'db.json');
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const first = await start({ dbFile });
+  const opId = randomUUID();
+  await fetch(`${first.base}/operations`, json({
+    op_id: opId, item_id: 'REF-0042', type: 'delta', value: -5, client_ts: '2026-10-22T10:00:00Z',
+  }));
+  await fetch(`${first.base}/_debug/items`, json({ ref: 'NEW-1', name: 'Nouveau', quantity: 3 }));
+  first.server.close();
+
+  const second = await start({ dbFile });
+  t.after(() => second.server.close());
+  assert.equal((await (await fetch(`${second.base}/items/REF-0042`)).json()).quantity, 245);
+  assert.equal((await (await fetch(`${second.base}/items/NEW-1`)).json()).quantity, 3);
+  const again = await (await fetch(`${second.base}/operations`, json({
+    op_id: opId, item_id: 'REF-0042', type: 'delta', value: -5, client_ts: '2026-10-22T10:00:00Z',
+  }))).json();
+  assert.equal(again.status, 'duplicate');
+  const page = await fetch(`${second.base}/`);
+  assert.match(await page.text(), /Base de démo Kura/);
+});

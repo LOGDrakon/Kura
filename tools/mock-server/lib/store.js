@@ -155,6 +155,20 @@ class Store {
     const entry = this.items.get(ref);
     return entry ? entry.ops.slice() : null;
   }
+
+  /** État complet (articles, stock initial, journal) : sert à la persistance sur disque. */
+  snapshot() {
+    return { version: 1, items: [...this.items.values()] };
+  }
+
+  static fromSnapshot(snap, options) {
+    const store = new Store([], options);
+    for (const entry of snap.items) {
+      store.items.set(entry.ref, entry);
+      for (const op of entry.ops) store.seen.set(op.op_id, { item_id: entry.ref });
+    }
+    return store;
+  }
 }
 
 module.exports = { Store, validate };

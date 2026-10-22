@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base de démo Kura</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1b1f24; --muted:#5b6470; --line:#dde1e6; --accent:#2457d6; --ok:#13795b; --warn:#a15c00; --flash:#fff4c2; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171b; --card:#1d2126; --text:#e8eaed; --muted:#9aa3ad; --line:#30363d; --accent:#7aa2ff; --ok:#4cc38a; --warn:#f0a94b; --flash:#4a3f12; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui, sans-serif; }
+  header { padding:16px; border-bottom:1px solid var(--line); background:var(--card); display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; }
+  header p { margin:0; color:var(--muted); font-size:13px; }
+  main { padding:16px; max-width:1200px; margin:0 auto; display:grid; gap:16px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  h2 { font-size:15px; margin:0 0 12px; }
+  .scroll { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  td.qty { font-variant-numeric:tabular-nums; font-weight:700; text-align:right; }
+  tr.flash td { background:var(--flash); transition:background 0s; }
+  tr td { transition:background 2s; }
+  tr.sel td { outline:none; background:color-mix(in srgb, var(--accent) 12%, transparent); }
+  button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:8px; padding:6px 12px; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  form { display:grid; gap:10px; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); align-items:end; }
+  label { display:grid; gap:4px; font-size:13px; color:var(--muted); }
+  input { font:inherit; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); width:100%; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; grid-column:1 / -1; }
+  .muted { color:var(--muted); font-size:13px; }
+  .delta-pos { color:var(--ok); font-weight:600; }
+  .delta-neg { color:var(--warn); font-weight:600; }
+  #msg { min-height:1.4em; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Base de démo Kura</h1>
+  <p>Simule la base de stock de l'entreprise (GMAO). Mise à jour automatique toutes les 2 s.</p>
+</header>
+<main>
+  <section aria-labelledby="t-items">
+    <h2 id="t-items">Articles <span class="muted" id="count"></span></h2>
+    <div class="scroll" tabindex="0" role="region" aria-labelledby="t-items">
+      <table>
+        <thead><tr id="head"></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="muted">Cliquez sur une ligne pour voir son journal ou la modifier.</p>
+  </section>
+
+  <section aria-labelledby="t-journal">
+    <h2 id="t-journal">Journal <span class="muted" id="journal-ref">(aucun article choisi)</span></h2>
+    <div class="scroll" tabindex="0" role="region" aria-labelledby="t-journal">
+      <table>
+        <thead><tr><th>Date (appareil)</th><th>Type</th><th>Valeur</th><th>Utilisateur</th><th>Appareil</th><th>Reçu le</th></tr></thead>
+        <tbody id="journal"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-new">
+    <h2 id="t-new">Créer ou modifier une entrée</h2>
+    <form id="form">
+      <label>Référence (ref) *<input name="ref" required></label>
+      <label>Désignation (name)<input name="name"></label>
+      <label>Marque (brand)<input name="brand"></label>
+      <label>Emplacement (location)<input name="location"></label>
+      <label>Catégorie (category)<input name="category"></label>
+      <label>Stock initial (quantity)<input name="quantity" type="number" min="0" step="1"></label>
+      <label>Autre colonne (nom)<input name="extra_key" placeholder="ex. fournisseur"></label>
+      <label>Autre colonne (valeur)<input name="extra_value"></label>
+      <div class="row">
+        <button class="primary" type="submit">Enregistrer</button>
+        <button type="reset">Vider</button>
+        <span id="msg" role="status" class="muted"></span>
+      </div>
+    </form>
+    <p class="muted">Le stock initial n'est pris en compte qu'à la création : ensuite, c'est l'appli qui le fait évoluer.</p>
+  </section>
+</main>
+<script>
+  const BASE_COLS = ['ref', 'name', 'brand', 'location', 'category'];
+  const HIDDEN = new Set(['updated_at', 'image_url', 'quantity']);
+  let selected = null;
+  let last = new Map();
+
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const fmt = (iso) => (iso ? new Date(iso).toLocaleString('fr-FR') : '');
+
+  async function refresh() {
+    let items;
+    try {
+      items = (await (await fetch('/items?limit=500')).json()).items;
+    } catch { return; }
+    items.sort((a, b) => a.ref.localeCompare(b.ref));
+    const extra = [...new Set(items.flatMap((it) => Object.keys(it)))].filter((k) => !BASE_COLS.includes(k) && !HIDDEN.has(k));
+    const cols = [...BASE_COLS, ...extra];
+    document.getElementById('head').innerHTML = cols.map((c) => `<th>${esc(c)}</th>`).join('') + '<th>Stock</th><th>Modifié le</th>';
+    document.getElementById('count').textContent = `(${items.length})`;
+    const tbody = document.getElementById('rows');
+    tbody.innerHTML = items.map((it) => {
+      const changed = last.has(it.ref) && last.get(it.ref) !== it.quantity;
+      const cls = [changed ? 'flash' : '', it.ref === selected ? 'sel' : ''].join(' ');
+      return `<tr class="${cls}" data-ref="${esc(it.ref)}" tabindex="0">` +
+        cols.map((c) => `<td>${esc(it[c])}</td>`).join('') +
+        `<td class="qty">${esc(it.quantity)}</td><td class="muted">${fmt(it.updated_at)}</td></tr>`;
+    }).join('');
+    requestAnimationFrame(() => tbody.querySelectorAll('tr.flash').forEach((tr) => tr.classList.remove('flash')));
+    last = new Map(items.map((it) => [it.ref, it.quantity]));
+    window.__items = items;
+    if (selected) loadJournal(selected);
+  }
+
+  async function loadJournal(ref) {
+    const res = await fetch(`/_debug/journal/${encodeURIComponent(ref)}`);
+    if (!res.ok) return;
+    const { operations } = await res.json();
+    document.getElementById('journal-ref').textContent = `: ${ref} (${operations.length} opération(s))`;
+    document.getElementById('journal').innerHTML = operations.slice().reverse().map((op) => {
+      const val = op.type === 'delta'
+        ? `<span class="${op.value > 0 ? 'delta-pos' : 'delta-neg'}">${op.value > 0 ? '+' : ''}${op.value}</span>`
+        : `= ${op.value}`;
+      return `<tr><td>${fmt(op.client_ts)}</td><td>${op.type === 'delta' ? 'mouvement' : 'inventaire'}</td><td>${val}</td>` +
+        `<td>${esc(op.user)}</td><td class="muted">${esc(op.device_id)}</td><td class="muted">${fmt(op.server_received_at)}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="muted">Aucune opération.</td></tr>';
+  }
+
+  function select(ref) {
+    selected = ref;
+    const it = window.__items.find((x) => x.ref === ref);
+    const form = document.getElementById('form');
+    for (const c of BASE_COLS) form.elements[c].value = it[c] ?? '';
+    form.elements.quantity.value = '';
+    refresh();
+  }
+
+  document.getElementById('rows').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-ref]');
+    if (tr) select(tr.dataset.ref);
+  });
+  document.getElementById('rows').addEventListener('keydown', (e) => {
+    const tr = e.target.closest('tr[data-ref]');
+    if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(tr.dataset.ref); }
+  });
+
+  document.getElementById('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const body = {};
+    for (const c of BASE_COLS) {
+      const v = String(f.get(c) ?? '').trim();
+      if (v) body[c] = v;
+    }
+    const q = String(f.get('quantity') ?? '').trim();
+    if (q) body.quantity = Number(q);
+    const k = String(f.get('extra_key') ?? '').trim();
+    if (k) body[k] = String(f.get('extra_value') ?? '').trim();
+    const res = await fetch('/_debug/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    document.getElementById('msg').textContent = res.ok ? `Entrée ${body.ref} enregistrée.` : `Erreur : ${(await res.json()).message}`;
+    if (res.ok) { selected = body.ref; refresh(); }
+  });
+
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+</body>
+</html>

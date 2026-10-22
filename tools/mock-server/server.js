@@ -1,12 +1,15 @@
 'use strict';
 
 // Kura Mock Server : implémentation de référence du contrat (spec/api-contract.yaml).
-// Zéro dépendance, données en mémoire. Ne pas utiliser en production.
+// Zéro dépendance, données en mémoire (ou dans un fichier JSON avec KURA_MOCK_DB).
+// Ne pas utiliser en production.
 
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Store } = require('./lib/store');
+
+const ADMIN_PAGE = path.join(__dirname, 'admin.html');
 
 const MAX_BODY = 1024 * 1024;
 const MAX_BATCH = 500;
@@ -72,8 +75,20 @@ function createServer({
   config = null,
   latencyMs = 0,
   log = () => {},
+  dbFile = null,
 } = {}) {
-  const store = new Store(items);
+  const store = dbFile && fs.existsSync(dbFile)
+    ? Store.fromSnapshot(JSON.parse(fs.readFileSync(dbFile, 'utf8')))
+    : new Store(items);
+
+  // Écriture atomique : un arrêt brutal ne laisse jamais un fichier à moitié écrit.
+  function persist() {
+    if (!dbFile) return;
+    const tmp = `${dbFile}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(store.snapshot(), null, 2));
+    fs.renameSync(tmp, dbFile);
+  }
+  persist();
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -89,6 +104,11 @@ function createServer({
 
     if (req.method === 'GET' && url.pathname === '/health') {
       return send(res, 200, { status: 'ok' });
+    }
+
+    // Vue « base de l'entreprise » pour les essais : articles, stock, journal (hors contrat).
+    if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/_admin')) {
+      return send(res, 200, fs.readFileSync(ADMIN_PAGE, 'utf8'), { 'Content-Type': 'text/html; charset=utf-8' });
     }
 
     if (token && req.headers.authorization !== `Bearer ${token}`) {
@@ -110,6 +130,7 @@ function createServer({
       if (req.method === 'POST' && url.pathname === '/_debug/items') {
         const item = store.upsertItem(await readJson(req));
         if (!item) return send(res, 400, { error: 'invalid', message: "'ref' obligatoire" });
+        persist();
         return send(res, 201, item);
       }
 
@@ -137,8 +158,9 @@ function createServer({
       }
 
       if (req.method === 'POST' && url.pathname === '/operations') {
-        const op = await readJson(req);
-        return send(res, 200, store.apply(op));
+        const result = store.apply(await readJson(req));
+        if (result.status === 'applied' || result.status === 'superseded') persist();
+        return send(res, 200, result);
       }
 
       if (req.method === 'POST' && url.pathname === '/operations/batch') {
@@ -150,7 +172,9 @@ function createServer({
             message: `'operations' doit être une liste de 1 à ${MAX_BATCH} éléments`,
           });
         }
-        return send(res, 200, { results: ops.map((op) => store.apply(op)) });
+        const results = ops.map((op) => store.apply(op));
+        if (results.some((r) => r.status === 'applied' || r.status === 'superseded')) persist();
+        return send(res, 200, { results });
       }
 
       if (req.method === 'GET' && url.pathname === '/config') {
@@ -181,9 +205,11 @@ if (require.main === module) {
     config: configFile ? fs.readFileSync(configFile, 'utf8') : null,
     latencyMs: Number(process.env.KURA_MOCK_LATENCY_MS || 0),
     log: (line) => console.log(`${new Date().toISOString()} ${line}`),
+    dbFile: process.env.KURA_MOCK_DB || null,
   });
   server.listen(port, host, () => {
-    console.log(`Kura Mock Server sur http://${host}:${port}`);
+    console.log(`Kura Mock Server sur http://${host}:${port} (base : http://localhost:${port}/)`);
+    if (process.env.KURA_MOCK_DB) console.log(`Données enregistrées dans ${process.env.KURA_MOCK_DB}`);
     if (process.env.KURA_MOCK_TOKEN) console.log('Authentification Bearer activée');
   });
 }

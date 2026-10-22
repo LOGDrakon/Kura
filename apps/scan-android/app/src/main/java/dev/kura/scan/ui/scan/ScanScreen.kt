@@ -95,6 +95,7 @@ fun ScanScreen(
     if (!twoPane && item != null) {
         // Téléphone : la fiche prend l'écran ; retour = revenir à la visée.
         BackHandler { vm.closeItem() }
+        CleartextDialog(state.cleartextPrompt, vm)
         ItemPane(
             state = item,
             config = state.config,
@@ -136,19 +137,24 @@ fun ScanScreen(
         ScanColumn(state, vm, onLoadFile, showSidePanelInline = true, modifier = modifier.fillMaxSize())
     }
 
-    state.cleartextPrompt?.let { url ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = vm::dismissCleartext,
-            title = { Text(stringResource(R.string.cleartext_title)) },
-            text = { Text(stringResource(R.string.cleartext_body, url)) },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = vm::acceptCleartext) { Text(stringResource(R.string.cleartext_accept)) }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = vm::dismissCleartext) { Text(stringResource(R.string.cancel)) }
-            },
-        )
-    }
+    CleartextDialog(state.cleartextPrompt, vm)
+}
+
+/** Confirmation « connexion non chiffrée » : affichée aussi par-dessus la fiche article. */
+@Composable
+private fun CleartextDialog(url: String?, vm: ScanViewModel) {
+    url ?: return
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = vm::dismissCleartext,
+        title = { Text(stringResource(R.string.cleartext_title)) },
+        text = { Text(stringResource(R.string.cleartext_body, url)) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = vm::acceptCleartext) { Text(stringResource(R.string.cleartext_accept)) }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = vm::dismissCleartext) { Text(stringResource(R.string.cancel)) }
+        },
+    )
 }
 
 @Composable

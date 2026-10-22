@@ -548,6 +548,10 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         container.settings.acceptCleartext(url)
         _state.update { it.copy(cleartextPrompt = null) }
         container.syncScheduler.requestNow()
+        // La fiche ouverte a été affichée hors ligne faute de confirmation : on la recharge.
+        val config = _state.value.config
+        val item = _state.value.item
+        if (config != null && item != null && item.offline) viewModelScope.launch { openItem(config, item.code) }
     }
 
     fun promptCleartext(url: String) = _state.update { it.copy(cleartextPrompt = url) }

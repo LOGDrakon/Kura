@@ -62,63 +62,68 @@ fun ItemPane(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(state.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-                if (state.title != state.code.itemId) {
-                    Text(state.code.itemId, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    // Le bouton Valider reste toujours visible en bas ; seule la fiche défile.
+    Column(modifier) {
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(state.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
+                    if (state.title != state.code.itemId) {
+                        Text(state.code.itemId, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.item_close))
                 }
             }
-            IconButton(onClick = onClose) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.item_close))
+
+            when {
+                state.loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(Modifier.padding(4.dp))
+                    Text(stringResource(R.string.item_loading))
+                }
+                state.notFound -> Notice(stringResource(R.string.item_not_found, state.code.itemId), error = true)
+                state.offline && state.fromCache -> Notice(stringResource(R.string.item_offline_cache), error = false)
+                state.offline -> Notice(stringResource(R.string.item_offline_nocache), error = false)
             }
-        }
 
-        when {
-            state.loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                CircularProgressIndicator(Modifier.padding(4.dp))
-                Text(stringResource(R.string.item_loading))
+            if (state.imageUrl != null) {
+                val context = LocalContext.current
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(state.imageUrl)
+                        .apply { state.imageHeaders.forEach { (k, v) -> addHeader(k, v) } }
+                        .size(640) // borne la mémoire, suffisant pour l'écran
+                        .build(),
+                    contentDescription = stringResource(R.string.item_image_cd),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 140.dp).clip(MaterialTheme.shapes.medium),
+                )
             }
-            state.notFound -> Notice(stringResource(R.string.item_not_found, state.code.itemId), error = true)
-            state.offline && state.fromCache -> Notice(stringResource(R.string.item_offline_cache), error = false)
-            state.offline -> Notice(stringResource(R.string.item_offline_nocache), error = false)
+
+            state.fields.filter { it.key != "quantity" }.forEach { f ->
+                LabelValue(f.label ?: defaultLabel(f.key), f.value)
+            }
+
+            QuantitySection(state, config, onStep, onQuantity)
         }
 
-        if (state.imageUrl != null) {
-            val context = LocalContext.current
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(state.imageUrl)
-                    .apply { state.imageHeaders.forEach { (k, v) -> addHeader(k, v) } }
-                    .size(640) // borne la mémoire, suffisant pour l'écran
-                    .build(),
-                contentDescription = stringResource(R.string.item_image_cd),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp).clip(MaterialTheme.shapes.medium),
-            )
-        }
-
-        state.fields.filter { it.key != "quantity" }.forEach { f ->
-            LabelValue(f.label ?: defaultLabel(f.key), f.value)
-        }
-
-        QuantitySection(state, config, onStep, onQuantity)
-
-        state.result?.let { BannerView(it, onTimeout = {}) }
-
-        Button(
-            onClick = onValidate,
-            enabled = !state.submitting && state.stepper.hasChanges,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
-        ) {
-            if (state.submitting) CircularProgressIndicator(Modifier.padding(4.dp), color = MaterialTheme.colorScheme.onPrimary)
-            else Text(stringResource(R.string.item_validate), style = MaterialTheme.typography.titleLarge)
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            state.result?.let { BannerView(it, onTimeout = {}) }
+            Button(
+                onClick = onValidate,
+                enabled = !state.submitting && state.stepper.hasChanges,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+            ) {
+                if (state.submitting) CircularProgressIndicator(Modifier.padding(4.dp), color = MaterialTheme.colorScheme.onPrimary)
+                else Text(stringResource(R.string.item_validate), style = MaterialTheme.typography.titleLarge)
+            }
         }
     }
 }
