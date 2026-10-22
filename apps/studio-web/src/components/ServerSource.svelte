@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte';
   import { studio } from '../lib/state.svelte';
   import { listItems, ServerError } from '../lib/server';
+  import { columnLabel, tagGroups } from '../lib/tags';
   import type { KuraConfig } from '../lib/config';
 
   let { onopenconfig }: { onopenconfig?: () => void } = $props();
@@ -22,8 +23,29 @@
   let searched = $state(false);
   let selected = $state<Set<string>>(new Set());
 
-  const visible = $derived(hidePrinted ? items.filter((it) => !studio.printed[it[idField]]) : items);
-  const hiddenCount = $derived(items.length - visible.length);
+  /** Étiquette de tri choisie (ex. service = Maintenance) : montre tout le groupe, y compris les déjà imprimés. */
+  let tag = $state<{ column: string; value: string } | null>(null);
+  const tags = $derived(tagGroups(items, idField));
+  const visible = $derived(
+    tag
+      ? items.filter((it) => String(it[tag!.column] ?? '').trim() === tag!.value)
+      : hidePrinted
+        ? items.filter((it) => !studio.printed[it[idField]])
+        : items,
+  );
+  const hiddenCount = $derived(tag ? 0 : items.length - visible.length);
+
+  async function pickTag(column: string, value: string) {
+    if (tag?.column === column && tag.value === value) {
+      tag = null;
+    } else {
+      // Le groupe doit être complet : on charge les pages restantes avant de filtrer.
+      while (next && !error) await search(true);
+      tag = { column, value };
+    }
+    selectAll(true);
+    studio.announce(tag ? `${visible.length} article${visible.length > 1 ? 's' : ''} : ${columnLabel(column)} ${value}` : 'Tous les articles');
+  }
 
   async function search(more = false) {
     loading = true;
@@ -110,6 +132,40 @@
 
   {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
+  {#if tags.length}
+    <div class="tags" role="group" aria-label="Trier par">
+      {#snippet tagRow(g: (typeof tags)[number])}
+        <div class="tag-row">
+          <span class="tag-label">{columnLabel(g.column)}</span>
+          <div class="chips">
+            {#each g.values as v (v.value)}
+              {@const active = tag?.column === g.column && tag.value === v.value}
+              <button type="button" class="chip" class:active aria-pressed={active} onclick={() => pickTag(g.column, v.value)}>
+                {v.value} <span class="n">{v.count}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/snippet}
+      <!-- Le premier critère (souvent le service) reste visible ; les autres sont repliés pour ne pas noyer la liste. -->
+      {@render tagRow(tags[0])}
+      {#if tags.length > 1}
+        <details class="more-tags" open={!!tag && tag.column !== tags[0].column}>
+          <summary>Autres critères ({tags.slice(1).map((g) => columnLabel(g.column)).join(', ')})</summary>
+          <div class="tags">
+            {#each tags.slice(1) as g (g.column)}{@render tagRow(g)}{/each}
+          </div>
+        </details>
+      {/if}
+      {#if tag}
+        <p class="hint">
+          Tous les articles « {tag.value} », y compris ceux déjà imprimés.
+          <button type="button" class="link" onclick={() => pickTag(tag!.column, tag!.value)}>Voir tous les articles</button>
+        </p>
+      {/if}
+    </div>
+  {/if}
+
   {#if searched}
     {#if visible.length}
       <div class="list-head">
@@ -169,6 +225,62 @@
     display: grid;
     gap: 0.4rem;
     margin-top: 0.5rem;
+  }
+  .tags {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .more-tags summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 550;
+    color: var(--muted);
+  }
+  .more-tags .tags {
+    margin-top: 0.45rem;
+  }
+  .tag-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+  }
+  .tag-label {
+    flex: none;
+    min-width: 5.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 32px;
+    padding: 0.2rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .chip:hover {
+    border-color: var(--accent);
+  }
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .chip .n {
+    font-size: 0.75rem;
+    opacity: 0.7;
   }
   .count {
     font-size: 0.85rem;

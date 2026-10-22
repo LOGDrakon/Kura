@@ -1,0 +1,16 @@
+[
+  {"ref": "REF-0042", "name": "Vis M6 x 20 inox", "location": "A12", "quantity": 250, "unit": "pcs", "brand": "Würth", "service": "Mécanique", "category": "Visserie"},
+  {"ref": "REF-0043", "name": "Écrou M6 inox", "location": "A13", "quantity": 400, "unit": "pcs", "brand": "Würth", "service": "Mécanique", "category": "Visserie"},
+  {"ref": "REF-0044", "name": "Rondelle plate M6", "location": "A14", "quantity": 600, "unit": "pcs", "brand": "Würth", "service": "Mécanique", "category": "Visserie"},
+  {"ref": "REF-0100", "name": "Courroie trapézoïdale SPZ 1250", "location": "B04", "quantity": 6, "unit": "pcs", "brand": "Optibelt", "service": "Maintenance", "category": "Transmission"},
+  {"ref": "REF-0101", "name": "Courroie trapézoïdale SPZ 1400", "location": "B05", "quantity": 4, "unit": "pcs", "brand": "Optibelt", "service": "Maintenance", "category": "Transmission"},
+  {"ref": "REF-0201", "name": "Roulement 6204-2RS", "location": "C01", "quantity": 18, "unit": "pcs", "brand": "SKF", "service": "Maintenance", "category": "Roulements"},
+  {"ref": "REF-0202", "name": "Roulement 6205-2RS", "location": "C02", "quantity": 12, "unit": "pcs", "brand": "SKF", "service": "Maintenance", "category": "Roulements"},
+  {"ref": "REF-0300", "name": "Graisse lithium 400 g", "location": "D02", "quantity": 9, "unit": "pcs", "brand": "Molykote", "service": "Maintenance", "category": "Lubrifiants"},
+  {"ref": "REF-0400", "name": "Disjoncteur 16 A courbe C", "location": "F01", "quantity": 15, "unit": "pcs", "brand": "Schneider", "service": "Électricité", "category": "Protection"},
+  {"ref": "REF-0401", "name": "Câble H07V-K 2,5 mm² (100 m)", "location": "F03", "quantity": 3, "unit": "bobines", "brand": "Nexans", "service": "Électricité", "category": "Câblage"},
+  {"ref": "REF-0402", "name": "Borne Wago 221-413", "location": "F02", "quantity": 120, "unit": "pcs", "brand": "Wago", "service": "Électricité", "category": "Câblage"},
+  {"ref": "3760123456789", "name": "Gants nitrile T9 (boîte)", "location": "E01", "quantity": 32, "unit": "boîtes", "service": "EPI", "category": "Protection individuelle"},
+  {"ref": "REF-0601", "name": "Lunettes de protection", "location": "E02", "quantity": 25, "unit": "pcs", "brand": "3M", "service": "EPI", "category": "Protection individuelle"},
+  {"ref": "REF-0602", "name": "Bouchons d'oreilles (boîte de 200)", "location": "E03", "quantity": 4, "unit": "boîtes", "brand": "3M", "service": "EPI", "category": "Protection individuelle"}
+]
