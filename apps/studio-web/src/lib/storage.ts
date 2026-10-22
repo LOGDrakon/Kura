@@ -60,3 +60,24 @@ export function slug(text: string): string {
       .replace(/^-+|-+$/g, '') || 'kura'
   );
 }
+
+const PRINTED = 'kura-studio:printed';
+
+/** Références déjà imprimées sur ce poste (référence → date), pour repérer les nouveautés. */
+export function loadPrinted(): Record<string, string> {
+  try {
+    const text = localStorage.getItem(PRINTED);
+    const value = text ? JSON.parse(text) : {};
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+export function savePrinted(printed: Record<string, string>): void {
+  try {
+    localStorage.setItem(PRINTED, JSON.stringify(printed));
+  } catch {
+    /* confort uniquement */
+  }
+}

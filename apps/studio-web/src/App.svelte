@@ -94,7 +94,7 @@
   {#if tab === 'templates'}
     <Editor />
   {:else if tab === 'print'}
-    <PrintView />
+    <PrintView onopenconfig={() => (tab = 'config')} />
   {:else if tab === 'config'}
     <ConfigView />
   {:else}

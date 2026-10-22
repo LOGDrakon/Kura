@@ -102,7 +102,11 @@
         "get_item": { "$ref": "#/$defs/endpoint" },
         "send_op": { "$ref": "#/$defs/endpoint" },
         "send_batch": { "$ref": "#/$defs/endpoint" },
-        "get_config": { "$ref": "#/$defs/endpoint" }
+        "get_config": { "$ref": "#/$defs/endpoint" },
+        "list_items": {
+          "$ref": "#/$defs/endpoint",
+          "description": "Liste des articles, utilisée par Kura Studio pour générer les étiquettes depuis la base (défaut : GET /items). Paramètres ajoutés : q, updated_since, limit, cursor."
+        }
       }
     },
 

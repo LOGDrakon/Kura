@@ -8,9 +8,15 @@
   import { buildPdf } from '../lib/pdf';
   import { download, slug } from '../lib/storage';
   import type { SheetLayout } from '../lib/model';
+  import { checkBatch } from '../lib/records';
+  import ServerSource from './ServerSource.svelte';
+
+  let { onopenconfig }: { onopenconfig?: () => void } = $props();
 
   const t = $derived(studio.current);
-  let source = $state<'csv' | 'list'>(studio.table.rows.length ? 'csv' : 'list');
+  const serverConfigured = /^https?:\/\/.+/.test(String((studio.data.config as any)?.server?.base_url ?? ''));
+  let source = $state<'server' | 'csv' | 'list'>(studio.table.rows.length ? 'csv' : serverConfigured ? 'server' : 'list');
+  const idField = $derived(String((studio.data.config as any)?.scan?.id_field ?? 'ref'));
   let listText = $state('');
   let busy = $state(false);
   let error = $state('');
@@ -19,9 +25,9 @@
   const usedFields = $derived(
     t ? [...new Set(t.elements.flatMap((e) => (e.kind === 'text' || e.kind === 'code' ? fieldsOf(e.content) : [])))] : [],
   );
-  const missing = $derived(
-    studio.table.rows.length ? usedFields.filter((f) => !studio.table.columns.includes(f)) : [],
-  );
+  /** Contrôle des lignes : champs obligatoires vides (écartées), champs non placés sur le modèle. */
+  const check = $derived(t && studio.table.rows.length ? checkBatch(t, studio.table.rows) : null);
+  const unplaced = $derived(check ? [...check.unplaced.entries()] : []);
 
   function applyList() {
     const refs = listText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
@@ -64,15 +70,15 @@
     studio.print.layout = preset === 'custom' ? customSheet(t) : sheetFromPreset(preset);
   }
 
-  const records = $derived(studio.table.rows.length ? studio.table.rows : t ? [t.sample] : []);
+  const records = $derived(check ? check.valid : t ? [t.sample] : []);
   const total = $derived(records.length * Math.max(1, studio.print.copies));
   const plan = $derived(t ? planPages(studio.print.layout, t, total, studio.print.skip) : null);
 
   /** Erreurs de génération de codes sur l'ensemble des lignes (ex. EAN invalide). */
   const rowIssues = $derived.by(() => {
-    if (!t || !studio.table.rows.length) return [];
+    if (!t || !check) return [];
     const out: { row: number; message: string }[] = [];
-    studio.table.rows.forEach((r, i) => {
+    check.valid.forEach((r, i) => {
       if (out.length >= 8) return;
       const issues: ElementIssue[] = [];
       renderLabelSvg({ ...t, elements: t.elements.filter((e) => e.kind === 'code') }, r, { issues });
@@ -111,6 +117,7 @@
     try {
       const bytes = await buildPdf($state.snapshot(t) as typeof t, records, $state.snapshot(studio.print));
       download(`etiquettes-${slug(t.name)}.pdf`, bytes as BlobPart, 'application/pdf');
+      if (check) studio.markPrinted(check.valid.map((r) => r[idField] ?? r.ref));
       studio.announce(`PDF généré : ${total} étiquette${total > 1 ? 's' : ''}`);
     } catch (e) {
       error = `Échec de la génération : ${(e as Error).message}`;
@@ -142,11 +149,14 @@
       <section class="card pad" aria-labelledby="data-title">
         <h2 id="data-title">1. Données</h2>
         <div class="segmented" role="group" aria-label="Source des données">
-          <button aria-pressed={source === 'list'} onclick={() => (source = 'list')}>Liste de références</button>
+          <button aria-pressed={source === 'server'} onclick={() => (source = 'server')}>Base de l'entreprise</button>
           <button aria-pressed={source === 'csv'} onclick={() => (source = 'csv')}>Fichier CSV</button>
+          <button aria-pressed={source === 'list'} onclick={() => (source = 'list')}>Liste de références</button>
         </div>
 
-        {#if source === 'list'}
+        {#if source === 'server'}
+          <ServerSource {onopenconfig} />
+        {:else if source === 'list'}
           <label class="field">
             <span>Une référence par ligne (champ {'{ref}'})</span>
             <textarea bind:value={listText} oninput={applyList} rows="6" class="mono" placeholder="REF-0042&#10;REF-0043"></textarea>
@@ -166,7 +176,8 @@
           <p><strong>{studio.table.rows.length}</strong> ligne{studio.table.rows.length > 1 ? 's' : ''} · colonnes :
             {#each studio.table.columns as c, i (c)}<code>{c}</code>{i < studio.table.columns.length - 1 ? ' ' : ''}{/each}
           </p>
-          <div class="table-wrap">
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <div class="table-wrap" tabindex="0" role="region" aria-label="Aperçu des données (défilement horizontal)">
             <table>
               <caption class="sr-only">Aperçu des données importées</caption>
               <thead><tr>{#each studio.table.columns as c (c)}<th scope="col">{c}</th>{/each}</tr></thead>
@@ -183,10 +194,34 @@
           <p class="hint">Sans données, l'aperçu utilise l'exemple du modèle.</p>
         {/if}
 
-        {#if missing.length}
-          <p class="notice warn" role="alert">
-            Le modèle utilise {missing.map((m) => `{${m}}`).join(', ')}, absent{missing.length > 1 ? 's' : ''} des données : ces champs seront vides.
-          </p>
+        {#if check?.rejected.length}
+          <div class="notice error" role="alert">
+            <p><strong>{check.rejected.length} étiquette{check.rejected.length > 1 ? 's' : ''} non imprimée{check.rejected.length > 1 ? 's' : ''}</strong> : champ obligatoire vide.</p>
+            <ul>
+              {#each check.rejected.slice(0, 8) as r (r.index)}
+                <li>ligne {r.index}{r.record[idField] ? ` (${r.record[idField]})` : ''} : {r.missing.map((m) => `{${m}}`).join(', ')}</li>
+              {/each}
+            </ul>
+            {#if check.rejected.length > 8}<p>… et {check.rejected.length - 8} autres.</p>{/if}
+            <p class="small">Complétez la base puis relancez la recherche, ou rendez ces champs facultatifs dans le modèle.</p>
+          </div>
+        {/if}
+
+        {#if unplaced.length}
+          <div class="notice error unplaced" role="alert">
+            <p><strong>Champs absents du modèle « {t.name} »</strong> : renseignés dans les données mais pas placés sur l'étiquette.</p>
+            <ul>
+              {#each unplaced as [field, count] (field)}
+                <li>
+                  <span><code>{'{'}{field}{'}'}</code> · {count} ligne{count > 1 ? 's' : ''}</span>
+                  <span class="actions">
+                    <button class="btn" onclick={() => studio.placeField(field)}><Icon name="plus" size={16} /> Ajouter au modèle</button>
+                    <button class="btn ghost" onclick={() => studio.ignoreField(field)}>Ignorer pour ce modèle</button>
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          </div>
         {/if}
       </section>
 
@@ -266,7 +301,7 @@
       <div class="buttons end">
         <button class="btn" onclick={exportSvg}><Icon name="image" /> SVG (1ʳᵉ étiquette)</button>
         <button class="btn primary" onclick={exportPdf} disabled={busy || total === 0 || plan?.oversize}>
-          <Icon name="download" /> {busy ? 'Génération…' : 'Télécharger le PDF'}
+          <Icon name="download" /> {busy ? 'Génération…' : 'Télécharger le PDF'}{check?.rejected.length ? ` (${check.rejected.length} exclue${check.rejected.length > 1 ? 's' : ''})` : ''}
         </button>
       </div>
     </section>
@@ -385,6 +420,27 @@
     width: auto;
     max-width: 100%;
     height: min(40vh, 320px);
+  }
+  .small {
+    font-size: 0.82rem;
+    margin-top: 0.3rem;
+  }
+  .unplaced li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.25rem 0;
+  }
+  .unplaced ul {
+    list-style: none;
+    padding: 0;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
   }
   .notice ul {
     margin: 0.3rem 0 0;

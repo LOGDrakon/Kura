@@ -1,6 +1,6 @@
 // Rendu SVG d'une étiquette (aperçu dans l'éditeur, export image).
 import { CodeError, codeGeometry } from './codes';
-import { fill } from './fields';
+import { fill, fillText } from './fields';
 import type { LabelElement, Template } from './model';
 import { layoutText } from './text';
 
@@ -19,6 +19,8 @@ export function renderElement(el: LabelElement, record: Record<string, string>, 
   switch (el.kind) {
     case 'code': {
       const value = fill(el.content, record);
+      // Champ facultatif vide : pas de code (un champ obligatoire vide est signalé avant l'impression).
+      if (!value.trim()) return '';
       try {
         const { rects } = codeGeometry(el, value);
         const d = rects.map((r) => `M${n(r.x)} ${n(r.y)}h${n(r.w)}v${n(r.h)}h${n(-r.w)}z`).join('');
@@ -30,7 +32,7 @@ export function renderElement(el: LabelElement, record: Record<string, string>, 
       }
     }
     case 'text': {
-      const layout = layoutText(el, fill(el.content, record));
+      const layout = layoutText(el, fillText(el.content, record));
       if (layout.overflow) issues?.push({ id: el.id, message: 'le texte dépasse du cadre' });
       const weight = el.bold ? 'bold' : 'normal';
       const size = n((layout.sizePt * 25.4) / 72);

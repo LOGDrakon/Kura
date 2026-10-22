@@ -22,6 +22,9 @@
 | Contenu du code | Identifiant seul par défaut ; données embarquées en option | [0003](adr/0003-qr-id-par-defaut.md) |
 | Saisie en série | Mode rafale dès la v1 | [0004](adr/0004-mode-rafale-v1.md) |
 | Conflits | `delta` additionnés, `set` : le plus récent gagne | [0005](adr/0005-resolution-conflits.md) |
+| Lecture | Bouton « Scanner », zone de visée | [0006](adr/0006-scan-sur-appui.md) |
+| Appareils | Android 6+, entrée de gamme | [0007](adr/0007-compatibilite-android.md) |
+| Étiquettes | Générées depuis la base de l'entreprise, champs obligatoires / facultatifs | [0008](adr/0008-etiquettes-depuis-la-base.md) |
 
 ## 3. Vue d'ensemble
 
@@ -156,6 +159,7 @@ Référence : [`spec/api-contract.yaml`](../spec/api-contract.yaml) (OpenAPI 3.1
 
 | Endpoint | Rôle |
 |---|---|
+| `GET /items` | Liste / recherche des articles, pour générer les étiquettes dans Studio (optionnel) |
 | `GET /items/{ref}` | Infos d'un article (optionnel si tout est dans le code) |
 | `GET /items/{ref}/image` | Image (optionnel) |
 | `POST /operations` | Une opération |

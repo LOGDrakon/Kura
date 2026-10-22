@@ -37,6 +37,51 @@ security:
   - {}
 
 paths:
+  /items:
+    get:
+      operationId: listItems
+      summary: Liste des articles (pour Kura Studio)
+      description: |
+        Optionnel. Permet à Kura Studio de retrouver les articles créés dans la base de l'entreprise
+        et d'en générer les étiquettes, à l'unité ou par lot. Kura ne crée jamais d'article :
+        la base de l'entreprise reste la source de vérité (ADR 0008).
+
+        Les champs de chaque article sont libres : leurs noms servent de champs `{nom}` dans les modèles
+        d'étiquettes. Kura Studio étant une page web, le serveur doit autoriser les appels du navigateur
+        (en-têtes CORS) depuis l'origine où Studio est ouvert.
+      parameters:
+        - name: q
+          in: query
+          description: Recherche texte (référence, désignation…), insensible à la casse.
+          schema: { type: string }
+        - name: updated_since
+          in: query
+          description: Seulement les articles créés ou modifiés depuis cette date.
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+        - name: cursor
+          in: query
+          description: Valeur `next_cursor` de la page précédente.
+          schema: { type: string }
+      responses:
+        '200':
+          description: Une page d'articles, du plus récent au plus ancien.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Item' }
+                  next_cursor:
+                    type: string
+                    description: Absent sur la dernière page.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /items/{ref}:
     get:
       operationId: getItem
@@ -190,6 +235,7 @@ components:
         quantity: { type: integer }
         unit: { type: string, examples: [pcs, m, kg] }
         image_url: { type: string, description: URL absolue ou relative au base_url }
+        updated_at: { type: string, format: date-time, description: Création ou dernière modification. }
       additionalProperties: true
       description: Les champs supplémentaires sont affichables via display.show_fields.
 

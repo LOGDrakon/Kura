@@ -127,6 +127,60 @@ const html = readFileSync(sharedPath, 'utf8');
 assert.equal((html.match(/id="kura-data"/g) || []).length, 1);
 await other.context.close();
 
+// --- Base de l'entreprise (serveur de démo) ---
+step('base de l’entreprise : nouvelle entrée → étiquette');
+const { createServer } = await import(resolve(import.meta.dirname, '../../../tools/mock-server/server.js'));
+const mock = createServer();
+await new Promise((r) => mock.listen(0, '127.0.0.1', r));
+const api = `http://127.0.0.1:${mock.address().port}`;
+// Une entrée est créée dans la base (pas dans Kura).
+await fetch(`${api}/_debug/items`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ ref: 'REF-0500', name: 'Joint torique 20x2', brand: 'Parker', service: 'Hydraulique' }),
+});
+await fetch(`${api}/_debug/items`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ ref: 'REF-0501', name: '', brand: 'Parker' }),
+});
+
+const db = await open('file://' + dist);
+await db.page.getByRole('tab', { name: 'Configuration' }).click();
+await db.page.getByLabel(/Adresse de l'API/).fill(api);
+await db.page.getByLabel('Authentification').selectOption('none');
+await db.page.getByRole('tab', { name: 'Modèles' }).click();
+// {name} devient obligatoire en plus de {ref}.
+await db.page.locator('.stage').click({ position: { x: 5, y: 5 } });
+await db.page.locator('.fields li', { hasText: '{name}' }).getByLabel('Obligatoire').check();
+
+await db.page.getByRole('tab', { name: 'Impression' }).click();
+await db.page.getByRole('button', { name: "Base de l'entreprise" }).click();
+await db.page.getByLabel(/Rechercher/).fill('parker');
+await db.page.getByRole('button', { name: 'Rechercher' }).click();
+await db.page.getByRole('list', { name: 'Articles du serveur' }).getByText('REF-0500').waitFor();
+// REF-0501 n'a pas de désignation : écartée.
+await db.page.getByText(/1 étiquette non imprimée/).waitFor();
+// brand et service ne sont pas sur le modèle.
+const unplacedBox = db.page.locator('.unplaced');
+await unplacedBox.getByText('{brand}').waitFor();
+await unplacedBox.locator('li', { hasText: '{service}' }).getByRole('button', { name: 'Ignorer pour ce modèle' }).click();
+await unplacedBox.locator('li', { hasText: '{brand}' }).getByRole('button', { name: 'Ajouter au modèle' }).click();
+await unplacedBox.waitFor({ state: 'detached' });
+await axe(db.page, 'impression depuis la base');
+await shot(db.page, '8-base-entreprise');
+const [dbPdf] = await Promise.all([db.page.waitForEvent('download'), db.page.getByRole('button', { name: /Télécharger le PDF \(1 exclue\)/ }).click()]);
+await dbPdf.saveAs(join(tmpdir(), 'kura-e2e-db.pdf'));
+// Une fois imprimée, REF-0500 disparaît des nouveautés.
+await db.page.getByRole('button', { name: 'Rechercher' }).click();
+await db.page.getByText(/déjà imprimé.? masqué/).waitFor();
+assert.equal(await db.page.getByRole('list', { name: 'Articles du serveur' }).getByText('REF-0500').count(), 0);
+// Le champ ajouté est sur le modèle.
+await db.page.getByRole('tab', { name: 'Modèles' }).click();
+await db.page.getByRole('button', { name: /Texte « \{brand\} »/ }).waitFor();
+await db.context.close();
+mock.close();
+
 // --- Mobile ---
 step('affichage mobile');
 const mobile = await open('file://' + dist, { width: 390, height: 844 });

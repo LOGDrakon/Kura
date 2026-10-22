@@ -3,6 +3,7 @@
   import { studio } from '../lib/state.svelte';
   import { SYMBOLOGIES, type Align, type VAlign } from '../lib/model';
   import { columnKey } from '../lib/csv';
+  import { templateFields } from '../lib/records';
 
   const t = $derived(studio.current);
   const el = $derived(studio.selected);
@@ -10,6 +11,8 @@
   const SIZES: [number, number][] = [
     [50, 25], [40, 30], [57, 32], [60, 40], [70, 37], [100, 50], [100, 150], [63.5, 38.1], [38.1, 21.2],
   ];
+
+  const used = $derived(t ? templateFields(t) : []);
 
   const fields = $derived.by(() => {
     const keys = new Set<string>(Object.keys(t?.sample ?? {}));
@@ -286,6 +289,41 @@
     </div>
 
     <div class="section">
+      <h3>Champs du modèle</h3>
+      {#if used.length}
+        <p class="hint">Un champ obligatoire vide empêche d'imprimer l'étiquette. Un champ facultatif vide est laissé blanc ; une ligne de texte dont tous les champs sont vides n'est pas imprimée.</p>
+        <ul class="fields">
+          {#each used as f (f)}
+            <li>
+              <code>{'{'}{f}{'}'}</code>
+              <label class="check">
+                <input type="checkbox" checked={t.required.includes(f)} onchange={(e) => studio.setRequired(f, e.currentTarget.checked)} />
+                Obligatoire
+              </label>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="hint">Ajoutez un texte ou un code contenant un champ, par exemple {'{ref}'}.</p>
+      {/if}
+      {#if t.required.some((f) => !used.includes(f))}
+        <p class="notice warn">Obligatoire mais absent de l'étiquette : {t.required.filter((f) => !used.includes(f)).map((f) => `{${f}}`).join(', ')}.
+          <button class="link" onclick={() => t.required.filter((f) => !used.includes(f)).forEach((f) => studio.setRequired(f, false))}>Retirer</button>
+        </p>
+      {/if}
+      {#if t.ignored.length}
+        <div class="field">
+          <span class="label">Champs ignorés pour ce modèle</span>
+          <div class="chips">
+            {#each t.ignored as f (f)}
+              <button class="chip" onclick={() => studio.ignoreField(f, false)} aria-label="Ne plus ignorer {f}" title="Ne plus ignorer">{f} ✕</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <div class="section">
       <h3>Données d'exemple</h3>
       <p class="hint">Valeurs utilisées pour l'aperçu. Les vraies données viennent de votre fichier à l'impression.</p>
       {#each Object.keys(t.sample) as key (key)}
@@ -379,6 +417,36 @@
   }
   .pad {
     padding: 0 0.9rem 0.9rem;
+  }
+  .fields {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+  }
+  .fields li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .fields li:last-child {
+    border-bottom: 0;
+  }
+  .fields code {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+  }
+  .link {
+    border: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 650;
+    text-decoration: underline;
+    cursor: pointer;
   }
   label.btn {
     cursor: pointer;

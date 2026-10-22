@@ -183,7 +183,7 @@ object ConfigParser {
 
         private fun endpoints(el: JsonElement, scanFields: Set<String>) {
             val o = obj("endpoints", el) ?: return
-            keys("endpoints", o, setOf("get_item", "send_op", "send_batch", "get_config"))
+            keys("endpoints", o, setOf("get_item", "send_op", "send_batch", "get_config", "list_items"))
             for ((name, value) in o) {
                 val path = "endpoints.$name"
                 val e = obj(path, value) ?: continue
@@ -193,7 +193,11 @@ object ConfigParser {
                 val p = e["path"]?.let { string("$path.path", it) }
                 if (p != null && !p.startsWith("/")) err("$path.path", "doit commencer par « / ».")
                 if (p != null) {
-                    val known = if (name == "get_item") scanFields else scanFields + OperationVariables.NAMES
+                    val known = when (name) {
+                        "get_item" -> scanFields
+                        "list_items" -> emptySet()
+                        else -> scanFields + OperationVariables.NAMES
+                    }
                     val unknown = Templates.variablesOf(p).filter { it !in known }
                     if (unknown.isNotEmpty()) {
                         warn("$path.path", "variable(s) inconnue(s) : ${unknown.joinToString(", ") { "{$it}" }}.")

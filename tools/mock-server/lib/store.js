@@ -33,8 +33,9 @@ class Store {
   constructor(items, { now = () => new Date() } = {}) {
     this.now = now;
     this.items = new Map();
+    const seeded = this.now().toISOString();
     for (const item of items) {
-      this.items.set(item.ref, { ...item, initial: item.quantity ?? 0, ops: [] });
+      this.items.set(item.ref, { updated_at: seeded, ...item, initial: item.quantity ?? 0, ops: [] });
     }
     this.seen = new Map(); // op_id -> résultat déjà renvoyé
   }
@@ -44,6 +45,41 @@ class Store {
     if (!entry) return null;
     const { initial, ops, ...item } = entry;
     return { ...item, quantity: this.quantityOf(entry) };
+  }
+
+  /**
+   * Liste paginée, du plus récent au plus ancien (comme une base qui trie sur updated_at).
+   * Le curseur est simplement la position dans la liste filtrée.
+   */
+  listItems({ q = '', updated_since = null, limit = 50, cursor = null } = {}) {
+    const needle = String(q).trim().toLowerCase();
+    const since = updated_since ? Date.parse(updated_since) : null;
+    let all = [...this.items.keys()].map((ref) => this.getItem(ref));
+    if (needle) {
+      all = all.filter((it) =>
+        Object.values(it).some((v) => typeof v === 'string' && v.toLowerCase().includes(needle)),
+      );
+    }
+    if (since !== null && !Number.isNaN(since)) all = all.filter((it) => Date.parse(it.updated_at) > since);
+    all.sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.ref.localeCompare(b.ref));
+    const start = Math.max(0, Number.parseInt(cursor ?? '0', 10) || 0);
+    const size = Math.min(500, Math.max(1, Number(limit) || 50));
+    const page = all.slice(start, start + size);
+    const next = start + size < all.length ? String(start + size) : undefined;
+    return next ? { items: page, next_cursor: next } : { items: page };
+  }
+
+  /** Simule la création d'un article dans la base de l'entreprise (hors contrat). */
+  upsertItem(item) {
+    if (!item || typeof item.ref !== 'string' || !item.ref.trim()) return null;
+    const existing = this.items.get(item.ref);
+    const updated_at = this.now().toISOString();
+    if (existing) {
+      Object.assign(existing, item, { updated_at });
+    } else {
+      this.items.set(item.ref, { ...item, updated_at, initial: item.quantity ?? 0, ops: [] });
+    }
+    return this.getItem(item.ref);
   }
 
   quantityOf(entry) {

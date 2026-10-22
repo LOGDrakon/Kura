@@ -6,7 +6,8 @@ import {
   type ElementKind, type LabelElement, type PrintOptions, type StudioData, type Template,
 } from './model';
 import type { Table } from './csv';
-import { loadLocal, saveLocal } from './storage';
+import { loadLocal, loadPrinted, saveLocal, savePrinted } from './storage';
+import { placeFieldElement } from './records';
 
 const HISTORY_LIMIT = 100;
 
@@ -19,6 +20,10 @@ class Studio {
   table = $state<Table>({ columns: [], rows: [] });
   print = $state<PrintOptions>({ layout: { kind: 'roll' }, copies: 1, skip: 0, outline: false });
   saveFailed = $state(false);
+  /** Secret d'accès au serveur pour lire les articles : en mémoire seulement, jamais enregistré. */
+  serverSecret = $state('');
+  /** Références déjà imprimées sur ce poste. */
+  printed = $state<Record<string, string>>(loadPrinted());
   /** Message annoncé aux lecteurs d'écran et affiché brièvement. */
   status = $state('');
   /** Incrémenté à chaque changement d'historique, pour rafraîchir les boutons annuler/rétablir. */
@@ -163,6 +168,42 @@ class Studio {
   canRedo(id: string | null) {
     void this.historyVersion;
     return !!id && (this.#future.get(id)?.length ?? 0) > 0;
+  }
+
+  markPrinted(refs: string[]) {
+    const at = now();
+    for (const r of refs) if (r) this.printed[r] = at;
+    savePrinted($state.snapshot(this.printed));
+  }
+
+  // --- Champs du modèle ---
+
+  /** Place un champ des données sur le modèle courant (ligne de texte, à ajuster ensuite). */
+  placeField(field: string) {
+    const t = this.current;
+    if (!t) return;
+    this.checkpoint();
+    t.elements.push({ ...newElement('text', t), ...placeFieldElement(t, field) } as LabelElement);
+    t.ignored = t.ignored.filter((f) => f !== field);
+    if (!(field in t.sample)) t.sample[field] = '';
+    this.touch();
+    this.announce(`Champ {${field}} ajouté en bas du modèle « ${t.name} » : ajustez sa place dans l'onglet Modèles`);
+  }
+
+  ignoreField(field: string, ignore = true) {
+    const t = this.current;
+    if (!t) return;
+    this.checkpoint();
+    t.ignored = ignore ? [...new Set([...t.ignored, field])] : t.ignored.filter((f) => f !== field);
+    this.touch();
+  }
+
+  setRequired(field: string, required: boolean) {
+    const t = this.current;
+    if (!t) return;
+    this.checkpoint();
+    t.required = required ? [...new Set([...t.required, field])] : t.required.filter((f) => f !== field);
+    this.touch();
   }
 
   // --- Éléments ---

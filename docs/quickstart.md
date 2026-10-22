@@ -39,6 +39,11 @@ curl -X POST localhost:8787/operations -H 'Content-Type: application/json' -d '{
 
 # Même commande une seconde fois → "status":"duplicate", le stock ne bouge pas.
 
+# Simuler un article créé dans la GMAO (hors contrat), puis le retrouver comme le fait Kura Studio
+curl -X POST localhost:8787/_debug/items -H 'Content-Type: application/json' \
+  -d '{"ref":"REF-0500","name":"Joint torique 20x2","brand":"Parker"}'
+curl 'localhost:8787/items?q=parker'
+
 # Journal de l'article (outil de débogage, hors contrat)
 curl localhost:8787/_debug/journal/REF-0042
 ```

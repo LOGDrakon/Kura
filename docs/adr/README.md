@@ -11,3 +11,4 @@ Chaque décision structurante est notée ici, avec son contexte, pour ne pas la 
 | [0005](0005-resolution-conflits.md) | `delta` additionnés, `set` : le plus récent gagne | Acceptée |
 | [0006](0006-scan-sur-appui.md) | Lecture déclenchée par un bouton « Scanner » | Acceptée |
 | [0007](0007-compatibilite-android.md) | Compatibilité maximale, appareils d'entrée de gamme inclus (minSdk 23) | Acceptée |
+| [0008](0008-etiquettes-depuis-la-base.md) | Les étiquettes partent de la base de l'entreprise ; champs obligatoires / facultatifs | Acceptée |

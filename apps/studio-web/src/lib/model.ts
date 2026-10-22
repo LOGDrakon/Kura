@@ -79,6 +79,10 @@ export interface Template {
   elements: LabelElement[];
   /** Exemple de données affiché dans l'éditeur. */
   sample: Record<string, string>;
+  /** Champs obligatoires : une étiquette dont l'un est vide n'est pas imprimée. Les autres sont facultatifs. */
+  required: string[];
+  /** Champs des données volontairement absents de ce modèle (plus d'alerte « champ non placé »). */
+  ignored: string[];
   updated_at: string;
 }
 
@@ -176,6 +180,8 @@ export function starterTemplate(name = 'Étiquette 50 × 25'): Template {
       },
     ],
     sample: { ref: 'REF-0042', name: 'Vis M6 x 20 inox', brand: 'Würth', location: 'A12' },
+    required: ['ref'],
+    ignored: [],
     updated_at: now(),
   };
 }
@@ -183,6 +189,8 @@ export function starterTemplate(name = 'Étiquette 50 × 25'): Template {
 const num = (v: unknown, d: number, min = -1e6, max = 1e6) =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : d;
 const str = (v: unknown, d = '') => (typeof v === 'string' ? v : d);
+const strings = (v: unknown, d: string[]) =>
+  Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && x.length <= 60))] : d;
 
 function normalizeElement(raw: any): LabelElement | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -240,6 +248,8 @@ export function normalizeTemplate(raw: any): Template | null {
     height_mm: num(raw.height_mm, 25, 5, 1000),
     elements: Array.isArray(raw.elements) ? raw.elements.map(normalizeElement).filter(Boolean) as LabelElement[] : [],
     sample,
+    required: strings(raw.required, ['ref']),
+    ignored: strings(raw.ignored, []),
     updated_at: str(raw.updated_at, now()),
   };
 }

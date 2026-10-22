@@ -125,6 +125,8 @@ data class EndpointsConfig(
     @SerialName("send_op") val sendOp: Endpoint? = null,
     @SerialName("send_batch") val sendBatch: Endpoint? = null,
     @SerialName("get_config") val getConfig: Endpoint? = null,
+    /** Utilisé par Kura Studio (liste des articles à étiqueter), ignoré par l'appli. */
+    @SerialName("list_items") val listItems: Endpoint? = null,
 )
 
 data class ResolvedEndpoints(

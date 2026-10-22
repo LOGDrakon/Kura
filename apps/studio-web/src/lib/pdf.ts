@@ -1,7 +1,7 @@
 // Génération du PDF d'impression : vectoriel, à l'échelle exacte.
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
 import { codeGeometry } from './codes';
-import { fill } from './fields';
+import { fill, fillText } from './fields';
 import { planPages } from './layout';
 import type { LabelElement, PrintOptions, Template } from './model';
 import { layoutText } from './text';
@@ -48,9 +48,11 @@ async function drawElement(ctx: Ctx, page: PDFPage, el: LabelElement, ox: number
 
   switch (el.kind) {
     case 'code': {
+      const value = fill(el.content, record);
+      if (!value.trim()) return;
       let rects;
       try {
-        rects = codeGeometry(el, fill(el.content, record)).rects;
+        rects = codeGeometry(el, value).rects;
       } catch {
         return; // Signalé dans l'interface avant l'export.
       }
@@ -59,7 +61,7 @@ async function drawElement(ctx: Ctx, page: PDFPage, el: LabelElement, ox: number
       return;
     }
     case 'text': {
-      const layout = layoutText(el, fill(el.content, record));
+      const layout = layoutText(el, fillText(el.content, record));
       const font = el.bold ? ctx.bold : ctx.regular;
       for (const line of layout.lines) {
         if (!line.text) continue;

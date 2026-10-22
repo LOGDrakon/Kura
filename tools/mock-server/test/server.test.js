@@ -80,3 +80,30 @@ test('authentification Bearer', async (t) => {
   const ok = await fetch(`${base}/items/REF-0042`, { headers: { Authorization: 'Bearer s3cret' } });
   assert.equal(ok.status, 200);
 });
+
+test('GET /items : recherche, nouveautés, pagination, CORS', async (t) => {
+  const { server, base } = await start();
+  t.after(() => server.close());
+
+  const all = await fetch(`${base}/items?limit=4`);
+  assert.equal(all.headers.get('access-control-allow-origin'), '*');
+  const page1 = await all.json();
+  assert.equal(page1.items.length, 4);
+  const page2 = await (await fetch(`${base}/items?limit=4&cursor=${page1.next_cursor}`)).json();
+  assert.equal(page2.items.length, 2);
+  assert.equal(page2.next_cursor, undefined);
+
+  const search = await (await fetch(`${base}/items?q=w%C3%BCrth`)).json();
+  assert.deepEqual(search.items.map((i) => i.ref).sort(), ['REF-0042', 'REF-0043']);
+
+  const since = new Date().toISOString();
+  await new Promise((r) => setTimeout(r, 5));
+  const created = await fetch(`${base}/_debug/items`, json({ ref: 'REF-0500', name: 'Joint torique 20x2', service: 'Hydraulique' }));
+  assert.equal(created.status, 201);
+  const fresh = await (await fetch(`${base}/items?updated_since=${encodeURIComponent(since)}`)).json();
+  assert.deepEqual(fresh.items.map((i) => i.ref), ['REF-0500']);
+
+  const preflight = await fetch(`${base}/items`, { method: 'OPTIONS' });
+  assert.equal(preflight.status, 204);
+  assert.match(preflight.headers.get('access-control-allow-headers'), /Authorization/);
+});

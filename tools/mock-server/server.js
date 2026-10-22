@@ -11,6 +11,14 @@ const { Store } = require('./lib/store');
 const MAX_BODY = 1024 * 1024;
 const MAX_BATCH = 500;
 
+// Kura Studio est une page web : il appelle le serveur depuis le navigateur.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Api-Key',
+  'Access-Control-Max-Age': '600',
+};
+
 function loadItems(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
@@ -18,6 +26,7 @@ function loadItems(file) {
 function send(res, status, body, headers = {}) {
   const payload = typeof body === 'string' ? body : JSON.stringify(body);
   res.writeHead(status, {
+    ...CORS,
     'Content-Type': typeof body === 'string' ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8',
     ...headers,
   });
@@ -73,6 +82,11 @@ function createServer({
 
     if (latencyMs) await new Promise((r) => setTimeout(r, latencyMs));
 
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, CORS);
+      return res.end();
+    }
+
     if (req.method === 'GET' && url.pathname === '/health') {
       return send(res, 200, { status: 'ok' });
     }
@@ -82,6 +96,23 @@ function createServer({
     }
 
     try {
+      if (req.method === 'GET' && url.pathname === '/items') {
+        const p = url.searchParams;
+        return send(res, 200, store.listItems({
+          q: p.get('q') ?? '',
+          updated_since: p.get('updated_since'),
+          limit: p.get('limit') ?? 50,
+          cursor: p.get('cursor'),
+        }));
+      }
+
+      // Simule une nouvelle entrée créée dans la GMAO (hors contrat).
+      if (req.method === 'POST' && url.pathname === '/_debug/items') {
+        const item = store.upsertItem(await readJson(req));
+        if (!item) return send(res, 400, { error: 'invalid', message: "'ref' obligatoire" });
+        return send(res, 201, item);
+      }
+
       if (req.method === 'GET' && parts[0] === 'items' && parts.length === 2) {
         const item = store.getItem(parts[1]);
         if (!item) return send(res, 404, { error: 'not_found', message: `article inconnu : ${parts[1]}` });
