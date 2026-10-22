@@ -16,15 +16,29 @@ android {
         // Android 6.0 : vise les téléphones d'entrée de gamme et les terminaux durcis anciens.
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "1.0.0"
         vectorDrawables { useSupportLibrary = true }
         // Uniquement le français pour l'instant : évite d'embarquer les traductions des bibliothèques.
         resourceConfigurations += listOf("fr")
     }
 
+    // Signature des versions publiées : clé fournie par l'environnement (CI ou poste du mainteneur).
+    val keystore = System.getenv("KURA_KEYSTORE_FILE")
+    if (keystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = System.getenv("KURA_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KURA_KEY_ALIAS")
+                keyPassword = System.getenv("KURA_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (keystore != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

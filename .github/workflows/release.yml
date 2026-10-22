@@ -1,0 +1,153 @@
+name: Release
+
+# Publier une version : git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/bridge/go.mod
+          cache-dependency-path: apps/bridge/go.sum
+      - name: Binaires et archives
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          mkdir -p out
+          for target in linux/amd64 linux/arm64 windows/amd64 darwin/arm64 darwin/amd64; do
+            os=${target%/*}; arch=${target#*/}
+            name=kura-bridge_${VERSION}_${os}_${arch}
+            dir=staging/$name
+            mkdir -p $dir/docs
+            exe=kura-bridge; [ $os = windows ] && exe=kura-bridge.exe
+            (cd apps/bridge && GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
+              -ldflags "-s -w -X main.version=$VERSION" -o ../../$dir/$exe ./cmd/kura-bridge)
+            cp -r apps/bridge/examples $dir/
+            cp apps/bridge/README.md LICENSE NOTICE $dir/
+            cp docs/guides/bridge.md docs/guides/integration.md $dir/docs/
+            cp -r docs/recipes $dir/docs/
+            if [ $os = windows ]; then
+              (cd staging && zip -qr ../out/$name.zip $name)
+            else
+              tar -C staging -czf out/$name.tar.gz $name
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bridge
+          path: out/*
+
+  studio:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/studio-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/studio-web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: cp dist/index.html kura-studio.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studio
+          path: apps/studio-web/kura-studio.html
+
+  mock-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          mkdir -p out staging/kura-mock-server
+          cp -r tools/mock-server/. staging/kura-mock-server/
+          rm -rf staging/kura-mock-server/.data staging/kura-mock-server/node_modules
+          cp LICENSE NOTICE staging/kura-mock-server/
+          (cd staging && zip -qr ../out/kura-mock-server-$VERSION.zip kura-mock-server)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mock-server
+          path: out/*
+
+  scan-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/scan-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Clé de signature
+        env:
+          KEYSTORE_B64: ${{ secrets.KURA_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Secret KURA_KEYSTORE_B64 absent : l'APK ne peut pas être signé (voir CONTRIBUTING.md, « Publier une version »)."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/kura-release.jks"
+      - name: APK
+        env:
+          KURA_KEYSTORE_FILE: ${{ runner.temp }}/kura-release.jks
+          KURA_KEYSTORE_PASSWORD: ${{ secrets.KURA_KEYSTORE_PASSWORD }}
+          KURA_KEY_ALIAS: ${{ secrets.KURA_KEY_ALIAS }}
+          KURA_KEY_PASSWORD: ${{ secrets.KURA_KEY_PASSWORD }}
+        run: |
+          ./gradlew :core:test :app:assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk kura-scan-${GITHUB_REF_NAME#v}.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scan
+          path: apps/scan-android/kura-scan-*.apk
+
+  release:
+    needs: [bridge, studio, mock-server, scan-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Notes de version (section du CHANGELOG)
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on && /^\[[0-9]/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          cat >> notes.md <<'EOF'
+
+          ### Fichiers
+
+          - `kura-scan-*.apk` : Kura Scan, à installer sur les téléphones Android 6.0 et plus.
+          - `kura-studio.html` : Kura Studio, à ouvrir dans un navigateur (aucune installation).
+          - `kura-bridge_*` : Kura Bridge pour Linux, Windows et macOS ([guide](https://github.com/LOGDrakon/Kura/blob/main/docs/guides/bridge.md)).
+          - `kura-mock-server-*.zip` : serveur de démonstration (Node.js 20 et plus).
+          - `SHA256SUMS` : sommes de contrôle.
+          EOF
+      - name: Sommes de contrôle
+        run: cd assets && sha256sum * > SHA256SUMS
+      - name: Publier
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" assets/* --title "Kura ${GITHUB_REF_NAME#v}" --notes-file notes.md

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Contrat d'API Kura
-  version: 0.1.0
+  version: 1.0.0
   summary: Échange minimal entre Kura Scan et le système de l'entreprise.
   description: |
     Trois besoins seulement : lire un article, envoyer des opérations, récupérer la config.

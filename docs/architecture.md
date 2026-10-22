@@ -189,24 +189,25 @@ Canaux : **F-Droid** (possible grâce à ZXing), **Play Store**, **APK** sur Git
 ### 🟢 v0.1 : « ça scanne et ça envoie »
 - [x] Contrat d'API (OpenAPI) et JSON Schema de la config
 - [x] Mock Server + tests de la règle de conflit
-- [ ] Kura Scan : bouton « Scanner » ([ADR 0006](adr/0006-scan-sur-appui.md)), scan QR/1D (ZXing), fiche, +/−/set, envoi HTTP direct
-- [ ] Config chargée par fichier et par QR de config
+- [x] Kura Scan : bouton « Scanner » ([ADR 0006](adr/0006-scan-sur-appui.md)), scan QR/1D (ZXing), fiche, +/−/set, envoi HTTP direct
+- [x] Config chargée par fichier et par QR de config
 - [x] Kura Studio : éditeur de modèles (QR/1D, textes, cadres, logos), export PDF, partage de l'éditeur avec ses modèles
-- [ ] Quickstart
+- [x] Quickstart
 
 ### 🟡 v0.5 : « ça tient en conditions réelles »
-- [ ] File offline complète (Room + WorkManager, idempotence, backoff, envoi par lot)
-- [ ] **Mode rafale** (exigé pour la v1, livré ici pour être éprouvé avant)
-- [ ] Verrouillage de config par mot de passe
-- [ ] Cache d'images et de fiches
+- [x] File offline complète (Room + WorkManager, idempotence, backoff, envoi par lot)
+- [x] **Mode rafale**
+- [x] Verrouillage de config par mot de passe
+- [x] Cache d'images et de fiches
 - [x] Studio : éditeur de config no-code, QR de configuration, import CSV, planches A4 et rouleau
-- [ ] Scanners Bluetooth/HID
+- [x] Scanners Bluetooth/HID
 
 ### 🟠 v1.0 : « adoptable en entreprise »
-- [ ] Kura Bridge (SQL + CSV)
-- [ ] Config distante signée
-- [ ] Guides complets + recettes de mapping
-- [ ] F-Droid + Play Store
+- [x] Kura Bridge : PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, et mode script (CSV, Excel, API REST…)
+- [x] Étiquettes générées depuis la base de l'entreprise ([ADR 0008](adr/0008-etiquettes-depuis-la-base.md))
+- [x] Guides complets + recettes de mapping
+- [ ] Config distante signée : prête côté Bridge (`GET /config`), pas encore téléchargée par Kura Scan
+- [ ] F-Droid + Play Store (APK sur GitHub Releases en attendant)
 - [ ] Tests sur plusieurs vraies GMAO
 
 ### 🔵 Plus tard

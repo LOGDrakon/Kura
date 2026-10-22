@@ -80,6 +80,7 @@ function createServer({
   const store = dbFile && fs.existsSync(dbFile)
     ? Store.fromSnapshot(JSON.parse(fs.readFileSync(dbFile, 'utf8')))
     : new Store(items);
+  if (dbFile) fs.mkdirSync(path.dirname(path.resolve(dbFile)), { recursive: true });
 
   // Écriture atomique : un arrêt brutal ne laisse jamais un fichier à moitié écrit.
   function persist() {

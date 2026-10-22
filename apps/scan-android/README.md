@@ -1,33 +1,41 @@
 # Kura Scan (Android)
 
-Appli de scan : lit un code QR ou 1D, affiche la fiche, envoie des mouvements au serveur de l'entreprise.
+Appli de scan : lit un code QR ou 1D, affiche la fiche, envoie des mouvements au serveur de l'entreprise, même hors réseau.
 
-> État : v0.1 en cours. Le module `:core` (toute la logique) est écrit et testé ; le module `:app` (Android) est écrit mais **n'a pas encore été compilé** (voir « État » plus bas).
+README développeur. Guide d'utilisation : [docs/guides/scan.md](../../docs/guides/scan.md). Options de configuration : [docs/reference/config.md](../../docs/reference/config.md).
 
 ## Construire
 
-Prérequis : JDK 17 ou plus récent. Le wrapper Gradle (8.14.3) est fourni.
+Prérequis :
+
+- **JDK 17 à 21** : le wrapper Gradle (8.14.3) ne fonctionne pas avec un JDK plus récent. Si le JDK par défaut est trop récent, pointez `JAVA_HOME` (ou `org.gradle.java.home` dans `~/.gradle/gradle.properties`) vers un JDK 17 ou 21 ;
+- pour `:app` : SDK Android avec la plateforme **35** et les build-tools correspondants (AGP 8.7.3).
 
 ```bash
 # Logique pure Kotlin, sans SDK Android (CI, poste sans Android Studio)
 ./gradlew :core:test
 
 # Appli Android : nécessite un SDK (Android Studio, ou ANDROID_HOME / local.properties sdk.dir)
-./gradlew :app:assembleDebug        # APK de debug : app/build/outputs/apk/debug/
+./gradlew :app:assembleDebug        # APK de debug : app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease      # R8 + réduction des ressources (signature à configurer)
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Le module `:app` n'est inclus que si un SDK Android est détecté (`local.properties` → `sdk.dir`, ou `ANDROID_HOME` / `ANDROID_SDK_ROOT`). Sans SDK, Gradle l'ignore (message « module :app ignoré ») et le plugin Android n'est même pas téléchargé : `:core` se construit partout.
+Le module `:app` n'est inclus que si un SDK Android est détecté (`local.properties` → `sdk.dir=/chemin/vers/Android/Sdk`, ou `ANDROID_HOME` / `ANDROID_SDK_ROOT`). Sans SDK, Gradle l'ignore (message « module :app ignoré ») et le plugin Android n'est même pas téléchargé : `:core` se construit partout.
 
 Android Studio : ouvrir le dossier `apps/scan-android/` (il crée `local.properties` automatiquement).
 
-Essai de bout en bout avec le serveur de démo :
+Essai de bout en bout avec le serveur de démo (voir aussi le [démarrage rapide](../../docs/quickstart.md)) :
 
 ```bash
-node ../../tools/mock-server/server.js            # http://0.0.0.0:8787
-# Émulateur : charger spec/examples/kura-config.minimal.json (http://10.0.2.2:8787),
+cd ../../tools/mock-server
+KURA_MOCK_DB=.data/db.json KURA_MOCK_ITEMS=demo/items.demo.json node server.js   # http://0.0.0.0:8787
+adb reverse tcp:8787 tcp:8787        # le téléphone (ou l'émulateur) joint le PC sur 127.0.0.1:8787
+# Charger tools/mock-server/demo/kura-config.demo.json (ou le QR généré par Studio),
 # accepter l'avertissement « connexion non chiffrée », scanner REF-0042.
 ```
+
+Sans `adb reverse` : `http://10.0.2.2:8787` depuis l'émulateur ([`kura-config.minimal.json`](../../spec/examples/kura-config.minimal.json)), ou l'IP du PC depuis un téléphone sur le même Wi-Fi.
 
 ## Organisation
 
@@ -86,7 +94,7 @@ Aucune dépendance aux Google Play Services ni à ML Kit, aucune bibliothèque n
 - Légèreté : pas d'écran de démarrage, rien d'initialisé au lancement (WorkManager et Coil à la demande), pas de `largeHeap`, cache mémoire d'images à 10 %, cache disque 32 Mo, cache des fiches borné à 2 000 articles, pas d'animations décoratives.
 - Petits écrans : mises en page prévues pour 320 dp de large et une police à 130 % (boutons de pas sur deux rangées, bouton « Scanner » de 72 dp toujours en bas). Tablette / paysage (largeur ≥ 600 dp) : fiche ou session rafale à côté de la caméra, rail de navigation.
 - Accessibilité : descriptions TalkBack, résultats annoncés (`liveRegion`), cibles ≥ 48 dp, titres sémantiques.
-- Taille estimée de l'APK release (R8, non mesurée faute de SDK ici) : **5 à 7 Mo**. Ordre de grandeur après réduction : Compose + Material 3 ≈ 3 Mo, CameraX ≈ 0,6 Mo, OkHttp/Okio ≈ 0,5 Mo, WorkManager ≈ 0,4 Mo, Coil + SVG ≈ 0,4 Mo, ZXing ≈ 0,3 Mo, Room ≈ 0,3 Mo, kotlinx (serialization, coroutines) ≈ 0,4 Mo, Bouncy Castle (seulement Argon2/Ed25519 gardés) ≈ 0,1 Mo.
+- Taille estimée de l'APK release (R8, pas encore mesurée ; l'APK de debug, sans réduction, fait ≈ 18 Mo) : **5 à 7 Mo**. Ordre de grandeur après réduction : Compose + Material 3 ≈ 3 Mo, CameraX ≈ 0,6 Mo, OkHttp/Okio ≈ 0,5 Mo, WorkManager ≈ 0,4 Mo, Coil + SVG ≈ 0,4 Mo, ZXing ≈ 0,3 Mo, Room ≈ 0,3 Mo, kotlinx (serialization, coroutines) ≈ 0,4 Mo, Bouncy Castle (seulement Argon2/Ed25519 gardés) ≈ 0,1 Mo.
 
 Limites connues sur l'entrée de gamme :
 - ZXing est plus lent que ML Kit sur les codes abîmés ; sur caméra à focale fixe, les petits codes 1D doivent être tenus à 15–25 cm. Le délai `scan.trigger.timeout_ms` peut être allongé.
@@ -107,7 +115,8 @@ Limites connues sur l'entrée de gamme :
 
 ## État
 
-Fait et testé (`./gradlew :core:test`, dont un test de bout en bout contre `tools/mock-server` lancé avec `node`, ignoré si `node` est absent) :
+v1.0 : `:core` testé (`./gradlew :core:test`, dont un test de bout en bout contre `tools/mock-server` lancé avec `node`, ignoré si `node` est absent) ; `:app` compilé et essayé sur appareil contre le serveur de démo (import par QR, fiche, inventaire, rafale, file d'attente hors-ligne).
+
 - [x] Lecture + validation de `kura-config.json` (messages clairs), QR de config clair et chiffré
 - [x] Parsing des codes `id` / `delimited` / `json`, préfixe, symbologies
 - [x] Machine à états du déclenchement, saisie HID, filtre « même code »
@@ -116,20 +125,13 @@ Fait et testé (`./gradlew :core:test`, dont un test de bout en bout contre `too
 - [x] Politique de synchro, backoff, lots, moteur de synchro ; session rafale
 - [x] Argon2id (vecteurs de libargon2), enveloppe de secret, signature Ed25519
 
-Écrit, **non compilé** (pas de SDK Android dans l'environnement de développement initial) :
-- [ ] `:app` — à compiler et essayer sur appareil : `./gradlew :app:assembleDebug`
+Non implémenté (options acceptées par la config mais sans effet, signalées dans la [référence](../../docs/reference/config.md)) :
 
-v0.1 : critères d'acceptation
-
-- [x] Charger une config depuis un fichier ou un QR de config ; refuser une config invalide avec un message clair. *(logique testée, écrans non essayés)*
-- [ ] Scanner QR, EAN-13, EAN-8, Code 128 (liste réglable par `scan.symbologies`). *(code écrit, à essayer)*
-- [ ] Mode `id` : `GET /items/{ref}` et affichage des champs `display.show_fields`. *(logique testée contre le mock server)*
-- [ ] Boutons de pas, champ quantité, Valider → une opération `delta` (somme des appuis) ou `set`. *(logique testée)*
-- [ ] Envoi `POST /operations` (ou endpoint + `request_mapping` de la config) et affichage du résultat. *(logique testée)*
-- [ ] Fonctionne de bout en bout contre `tools/mock-server`. *(côté `:core` : oui ; appli : à vérifier)*
+- Secret fourni par MDM (`token_ref: "mdm"`, *managed configurations*) : message affiché seulement.
+- Config distante (`remote_config`) : vérification de signature prête dans `:core`, récupération non branchée dans l'appli.
 
 À faire ensuite :
-- Secret fourni par MDM (`token_ref: "mdm"`, *managed configurations*) : non implémenté (message affiché).
-- Config distante (`remote_config`) : vérification de signature prête dans `:core`, récupération périodique non branchée dans l'appli.
+
 - Tests instrumentés Android (Compose UI, Room, analyseur ZXing sur images de référence).
+- Mesurer la taille réelle de l'APK release.
 - Traductions (seul le français est livré).

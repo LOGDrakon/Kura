@@ -1,6 +1,6 @@
 {
   "name": "@kura/studio-web",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Kura Studio : modèles d'étiquettes, génération PDF et configuration de Kura Scan",
   "license": "Apache-2.0",
   "private": true,

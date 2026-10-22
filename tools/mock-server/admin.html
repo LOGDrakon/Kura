@@ -90,13 +90,17 @@
   let selected = null;
   let last = new Map();
 
+  // Serveur protégé (KURA_MOCK_TOKEN) : ouvrir la page avec ?token=… pour qu'elle puisse lire la base.
+  const token = new URLSearchParams(location.search).get('token');
+  const api = (url, init = {}) => fetch(url, { ...init, headers: { ...(init.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+
   const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const fmt = (iso) => (iso ? new Date(iso).toLocaleString('fr-FR') : '');
 
   async function refresh() {
     let items;
     try {
-      items = (await (await fetch('/items?limit=500')).json()).items;
+      items = (await (await api('/items?limit=500')).json()).items;
     } catch { return; }
     items.sort((a, b) => a.ref.localeCompare(b.ref));
     const extra = [...new Set(items.flatMap((it) => Object.keys(it)))].filter((k) => !BASE_COLS.includes(k) && !HIDDEN.has(k));
@@ -118,7 +122,7 @@
   }
 
   async function loadJournal(ref) {
-    const res = await fetch(`/_debug/journal/${encodeURIComponent(ref)}`);
+    const res = await api(`/_debug/journal/${encodeURIComponent(ref)}`);
     if (!res.ok) return;
     const { operations } = await res.json();
     document.getElementById('journal-ref').textContent = `: ${ref} (${operations.length} opération(s))`;
@@ -161,7 +165,7 @@
     if (q) body.quantity = Number(q);
     const k = String(f.get('extra_key') ?? '').trim();
     if (k) body[k] = String(f.get('extra_value') ?? '').trim();
-    const res = await fetch('/_debug/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await api('/_debug/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     document.getElementById('msg').textContent = res.ok ? `Entrée ${body.ref} enregistrée.` : `Erreur : ${(await res.json()).message}`;
     if (res.ok) { selected = body.ref; refresh(); }
   });
