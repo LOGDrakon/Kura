@@ -21,3 +21,6 @@ kura-config.local.json
 
 # Base de démo du mock server (KURA_MOCK_DB)
 tools/mock-server/.data/
+
+# Clé de signature des APK (à sortir du dépôt et sauvegarder)
+/signing/
