@@ -25,3 +25,28 @@ jobs:
       - run: pip install jsonschema pyyaml
       - name: Valider le schéma, les exemples et le contrat OpenAPI
         run: python spec/validate.py
+
+  studio-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/studio-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/studio-web/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Parcours complet dans Chrome
+        run: npm run test:e2e
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kura-studio
+          path: apps/studio-web/dist/index.html

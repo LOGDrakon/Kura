@@ -56,6 +56,33 @@
         "prefix": {
           "description": "Préfixe optionnel à retirer avant analyse (ex. 'KURA:'). Un code sans ce préfixe est refusé.",
           "type": "string"
+        },
+        "trigger": {
+          "description": "Déclenchement de la lecture caméra. Par défaut, rien n'est lu tant que l'utilisateur n'appuie pas sur « Scanner » (évite de lire les codes qui traînent dans le champ).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "enum": ["button", "continuous"], "default": "button" },
+            "timeout_ms": {
+              "description": "Durée maximale d'une tentative de lecture après appui.",
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 30000,
+              "default": 6000
+            },
+            "aim_area": {
+              "description": "Part de la largeur de l'image analysée (zone de visée centrale). Seuls les codes dans cette zone sont lus.",
+              "type": "number",
+              "minimum": 0.2,
+              "maximum": 1,
+              "default": 0.6
+            },
+            "volume_keys": {
+              "description": "Les touches de volume déclenchent aussi la lecture (pratique avec des gants).",
+              "type": "boolean",
+              "default": true
+            }
+          }
         }
       },
       "allOf": [

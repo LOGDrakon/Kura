@@ -115,7 +115,8 @@ Règles de résolution : voir [ADR 0005](adr/0005-resolution-conflits.md).
 ## 5. Kura Studio (web statique)
 
 - 100 % côté navigateur, hébergeable n'importe où ou utilisable en local, **PWA** hors-ligne.
-- Stack : **Svelte + Vite**, `qrcode` pour les QR, `bwip-js` pour les codes 1D, `pdf-lib` pour le PDF.
+- Stack : **Svelte + Vite**, livré en **un seul fichier HTML** ; `bwip-js` pour tous les codes (rendu vectoriel), `pdf-lib` pour le PDF.
+- **Modèles d'étiquettes** : éléments placés librement (code, texte libre avec champs `{colonne}`, cadre, image), dimensions au mm. L'éditeur exporté embarque les modèles et la config pour être partagé entre postes sans les recréer.
 - Si un jour une version desktop est nécessaire : emballage **Tauri**, sans code séparé.
 
 Fonctions :
@@ -184,9 +185,9 @@ Canaux : **F-Droid** (possible grâce à ZXing), **Play Store**, **APK** sur Git
 ### 🟢 v0.1 : « ça scanne et ça envoie »
 - [x] Contrat d'API (OpenAPI) et JSON Schema de la config
 - [x] Mock Server + tests de la règle de conflit
-- [ ] Kura Scan : scan QR/1D (ZXing), fiche, +/−/set, envoi HTTP direct
+- [ ] Kura Scan : bouton « Scanner » ([ADR 0006](adr/0006-scan-sur-appui.md)), scan QR/1D (ZXing), fiche, +/−/set, envoi HTTP direct
 - [ ] Config chargée par fichier et par QR de config
-- [ ] Kura Studio : génération de QR/codes-barres + export PDF
+- [x] Kura Studio : éditeur de modèles (QR/1D, textes, cadres, logos), export PDF, partage de l'éditeur avec ses modèles
 - [ ] Quickstart
 
 ### 🟡 v0.5 : « ça tient en conditions réelles »
@@ -194,7 +195,7 @@ Canaux : **F-Droid** (possible grâce à ZXing), **Play Store**, **APK** sur Git
 - [ ] **Mode rafale** (exigé pour la v1, livré ici pour être éprouvé avant)
 - [ ] Verrouillage de config par mot de passe
 - [ ] Cache d'images et de fiches
-- [ ] Studio : éditeur de config no-code, import CSV, formats d'étiquettes
+- [x] Studio : éditeur de config no-code, QR de configuration, import CSV, planches A4 et rouleau
 - [ ] Scanners Bluetooth/HID
 
 ### 🟠 v1.0 : « adoptable en entreprise »

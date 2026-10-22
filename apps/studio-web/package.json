@@ -1,0 +1,34 @@
+{
+  "name": "@kura/studio-web",
+  "version": "0.1.0",
+  "description": "Kura Studio : modèles d'étiquettes, génération PDF et configuration de Kura Scan",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "test:e2e": "node e2e/smoke.mjs"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "axe-core": "^4.14.0",
+    "playwright-core": "1.56",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.7",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5",
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "bwip-js": "^4.11.4",
+    "hash-wasm": "^4.12.0",
+    "pdf-lib": "^1.17.1"
+  }
+}
