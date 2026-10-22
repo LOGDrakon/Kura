@@ -27,12 +27,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.kura.core.burst.BurstLine
 import dev.kura.scan.R
 import dev.kura.scan.ui.common.InputDialog
 import dev.kura.scan.ui.common.signed
+import dev.kura.scan.ui.theme.deltaColor
 
 /** Panneau de session rafale : lignes regroupées par article, annuler, corriger une ligne (ADR 0004 §5). */
 @Composable
@@ -54,8 +56,7 @@ fun BurstPanel(state: ScanUiState, vm: ScanViewModel, modifier: Modifier = Modif
                 }
             }
             if (state.burstLines.isEmpty()) {
-                val step = signed(state.burstStep.toLong() * state.direction.sign)
-                Text(stringResource(R.string.burst_empty, step), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.burst_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 LazyColumn {
                     items(state.burstLines.asReversed(), key = { it.itemId }) { line ->
@@ -104,6 +105,11 @@ private fun BurstLineRow(line: BurstLine, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Text(signed(line.total), style = MaterialTheme.typography.titleMedium)
+        Text(
+            signed(line.total),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = deltaColor(line.total),
+        )
     }
 }

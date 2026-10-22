@@ -377,6 +377,15 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(item = null) }
     }
 
+    /** Efface la saisie en cours (+/− ou inventaire) sans rien envoyer. */
+    fun resetPending() = updateStepper { it.reset() }
+
+    /** Après une validation : referme la fiche et relance aussitôt la lecture. */
+    fun scanNext() {
+        closeItem()
+        onScanButton()
+    }
+
     fun onValidate() {
         val pane = _state.value.item ?: return
         val config = _state.value.config ?: return

@@ -47,13 +47,19 @@
     <string name="direction_in">Entrée</string>
     <string name="direction_out">Sortie</string>
     <string name="mode_label">Mode de scan</string>
+    <string name="mode_item_hint">Un article à la fois : vous voyez sa fiche et ajustez le stock.</string>
+    <string name="mode_burst_hint">Chaque code lu compte directement %1$s, sans ouvrir de fiche.</string>
+    <string name="scan_idle_hint">Appuyez sur Scanner puis visez le code</string>
+    <string name="status_pending">%1$d en attente</string>
+    <string name="status_pending_cd">%1$d mouvement(s) pas encore envoyé(s). Ouvrir la file d\'attente.</string>
+    <string name="status_synced">À jour</string>
     <string name="direction_label">Sens du mouvement</string>
     <string name="offline_banner">Hors-ligne</string>
     <string name="config_qr_detected">QR de configuration détecté</string>
 
     <!-- Rafale -->
     <string name="burst_title">Session rafale</string>
-    <string name="burst_empty">Chaque lecture enregistre un mouvement de %1$s.</string>
+    <string name="burst_empty">Aucune lecture pour l\'instant : appuyez sur Scanner.</string>
     <string name="burst_line">%1$s × %2$d</string>
     <string name="burst_feedback">%1$s · %2$s</string>
     <string name="burst_undo">Annuler la dernière lecture</string>
@@ -87,6 +93,16 @@
     <string name="item_rejected">Refusé par le serveur : %1$s</string>
     <string name="item_superseded">Une correction plus récente est déjà enregistrée</string>
     <string name="item_close">Fermer la fiche</string>
+    <string name="item_inventory">Inventaire</string>
+    <string name="item_inventory_title">Quantité comptée</string>
+    <string name="item_inventory_body">Saisissez la quantité réellement présente : elle remplacera le stock enregistré.</string>
+    <string name="item_inventory_label">Quantité</string>
+    <string name="item_validate_delta">Valider %1$s</string>
+    <string name="item_validate_set">Valider : %1$d</string>
+    <string name="item_reset_cd">Effacer le mouvement</string>
+    <string name="item_scan_next">Scanner l\'article suivant</string>
+    <string name="item_stock_cd">%1$s : %2$s</string>
+    <string name="item_stock_cd_change">%1$s : %2$s, après validation : %3$s</string>
     <string name="item_empty_pane">Scannez un article pour afficher sa fiche.</string>
 
     <string name="field_name">Désignation</string>
@@ -95,9 +111,11 @@
     <string name="field_unit">Unité</string>
     <string name="field_ref">Référence</string>
 
-    <!-- File d'attente -->
+    <!-- File d\'attente -->
     <string name="queue_title">File d\'attente</string>
-    <string name="queue_empty">Tout est envoyé.</string>
+    <string name="queue_empty">Tout est envoyé</string>
+    <string name="queue_empty_body">Les mouvements qui n\'ont pas pu partir (pas de réseau, serveur injoignable) apparaissent ici et sont renvoyés automatiquement.</string>
+    <string name="queue_intro">Ces mouvements sont enregistrés sur le téléphone et seront envoyés dès que le serveur répond.</string>
     <string name="queue_pending">En attente</string>
     <string name="queue_error">En erreur</string>
     <string name="queue_retry">Relancer</string>

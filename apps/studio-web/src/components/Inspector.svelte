@@ -98,6 +98,10 @@
     studio.touch();
   }
 
+  function confirmRemove() {
+    if (t && confirm(`Supprimer le modèle « ${t.name} » ?`)) studio.remove(t.id);
+  }
+
   function removeSampleKey(key: string) {
     if (!t) return;
     studio.checkpoint();
@@ -110,7 +114,7 @@
   {#if t && el}
     <div class="head">
       <h2>
-        {#if el.kind === 'text'}Texte{:else if el.kind === 'code'}Code{:else if el.kind === 'rect'}Cadre{:else}Image{/if}
+        {#if el.kind === 'text'}Texte{:else if el.kind === 'code'}QR / code-barres{:else if el.kind === 'rect'}Cadre{:else}Image{/if}
       </h2>
       <div class="actions">
         <button class="btn ghost icon" onclick={() => studio.reorderSelected(-1)} aria-label="Envoyer vers l'arrière" title="Vers l'arrière"><Icon name="down" /></button>
@@ -145,13 +149,14 @@
           {/if}
         </label>
         {#if fields.length}
+          <span class="label" aria-hidden="true">Insérer une information de la base :</span>
           <div class="chips" role="group" aria-label="Insérer un champ">
             {#each fields as f (f)}
               <button class="chip" onclick={() => insertField(f)} title="Insérer {'{'}{f}{'}'}">{f}</button>
             {/each}
           </div>
         {/if}
-        <p class="hint">Texte libre et champs entre accolades, remplacés par les colonnes de votre fichier.</p>
+        <p class="hint">Écrivez du texte libre ; les noms entre accolades, comme {'{ref}'}, sont remplacés par la valeur de chaque article.</p>
       </div>
     {/if}
 
@@ -163,9 +168,12 @@
             {#each SYMBOLOGIES as s (s.id)}<option value={s.id}>{s.label}</option>{/each}
           </select>
         </label>
-        {#if el.symbology === 'qrcode'}
+      </div>
+      {#if el.symbology === 'qrcode'}
+      <details class="section adv">
+        <summary>Options avancées</summary>
           <label class="field">
-            <span>Correction d'erreur</span>
+            <span>Résistance aux salissures (correction d'erreur)</span>
             <select bind:value={el.eclevel} onchange={() => studio.touch()}>
               <option value="L">Faible (7 %)</option>
               <option value="M">Moyenne (15 %)</option>
@@ -173,8 +181,9 @@
               <option value="H">Maximale (30 %)</option>
             </select>
           </label>
-        {/if}
-      </div>
+          <p class="hint">Plus la résistance est forte, plus le code est dense. « Moyenne » convient presque toujours.</p>
+      </details>
+      {/if}
     {/if}
 
     {#if el.kind === 'text'}
@@ -260,7 +269,14 @@
       </div>
     </div>
   {:else if t}
-    <div class="head"><h2>Modèle</h2></div>
+    <div class="head">
+      <h2>Modèle</h2>
+      <div class="actions">
+        <button class="btn ghost icon" onclick={() => studio.duplicate(t.id)} aria-label="Dupliquer « {t.name} »" title="Dupliquer"><Icon name="copy" /></button>
+        <button class="btn ghost icon danger" onclick={confirmRemove} aria-label="Supprimer « {t.name} »" title="Supprimer"><Icon name="trash" /></button>
+      </div>
+    </div>
+    <p class="hint pad top">Cliquez sur un élément de l'étiquette pour le modifier, ou réglez ici le modèle entier.</p>
     <div class="section">
       <label class="field">
         <span>Nom</span>
@@ -278,7 +294,7 @@
             onchange={(e) => { t.height_mm = Math.max(5, num(e.currentTarget.value, t.height_mm)); studio.touch(); }} />
         </label>
       </div>
-      <div class="chips" role="group" aria-label="Formats courants">
+      <div class="chips sizes" role="group" aria-label="Formats courants">
         {#each SIZES as [w, h] (`${w}x${h}`)}
           <button class="chip" aria-pressed={t.width_mm === w && t.height_mm === h}
             onclick={() => { studio.checkpoint(); t.width_mm = w; t.height_mm = h; studio.touch(); }}>
@@ -289,9 +305,9 @@
     </div>
 
     <div class="section">
-      <h3>Champs du modèle</h3>
+      <h3>Informations imprimées</h3>
       {#if used.length}
-        <p class="hint">Un champ obligatoire vide empêche d'imprimer l'étiquette. Un champ facultatif vide est laissé blanc ; une ligne de texte dont tous les champs sont vides n'est pas imprimée.</p>
+        <p class="hint">Cochez « Obligatoire » si l'étiquette ne doit pas être imprimée quand l'information manque dans la base. Sinon, elle est laissée vide.</p>
         <ul class="fields">
           {#each used as f (f)}
             <li>
@@ -323,9 +339,9 @@
       {/if}
     </div>
 
-    <div class="section">
-      <h3>Données d'exemple</h3>
-      <p class="hint">Valeurs utilisées pour l'aperçu. Les vraies données viennent de votre fichier à l'impression.</p>
+    <details class="section adv">
+      <summary>Exemple utilisé pour l'aperçu</summary>
+      <p class="hint">Valeurs fictives pour voir l'étiquette pendant la mise en page. À l'impression, ce sont celles de vos articles.</p>
       {#each Object.keys(t.sample) as key (key)}
         <div class="sample">
           <label class="field">
@@ -342,8 +358,7 @@
         </label>
         <button class="btn icon" type="submit" aria-label="Ajouter le champ"><Icon name="plus" /></button>
       </form>
-    </div>
-    <p class="hint pad">Sélectionnez un élément de l'étiquette pour le modifier.</p>
+    </details>
   {/if}
 </aside>
 
@@ -417,6 +432,21 @@
   }
   .pad {
     padding: 0 0.9rem 0.9rem;
+  }
+  .pad.top {
+    padding-top: 0.7rem;
+    padding-bottom: 0;
+  }
+  .adv summary {
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .chips.sizes .chip {
+    font-family: var(--font);
   }
   .fields {
     list-style: none;

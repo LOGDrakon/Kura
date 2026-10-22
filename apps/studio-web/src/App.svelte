@@ -8,15 +8,16 @@
   import { loadPrefs, savePrefs } from './lib/storage';
 
   type Tab = 'templates' | 'print' | 'config' | 'share';
+  // Ordre = fréquence d'usage : imprimer est la tâche de tous les jours, le reste se règle une fois.
   const tabs: { id: Tab; label: string; icon: string }[] = [
+    { id: 'print', label: 'Imprimer', icon: 'printer' },
     { id: 'templates', label: 'Modèles', icon: 'tag' },
-    { id: 'print', label: 'Impression', icon: 'printer' },
-    { id: 'config', label: 'Configuration', icon: 'settings' },
-    { id: 'share', label: 'Partage', icon: 'share' },
+    { id: 'config', label: 'Appli mobile', icon: 'phone' },
+    { id: 'share', label: 'Partager', icon: 'share' },
   ];
 
-  const prefs = loadPrefs({ tab: 'templates' as Tab, theme: 'auto' as 'auto' | 'light' | 'dark' });
-  let tab = $state<Tab>(tabs.some((t) => t.id === prefs.tab) ? prefs.tab : 'templates');
+  const prefs = loadPrefs({ tab: 'print' as Tab, theme: 'auto' as 'auto' | 'light' | 'dark' });
+  let tab = $state<Tab>(tabs.some((t) => t.id === prefs.tab) ? prefs.tab : 'print');
   let theme = $state(prefs.theme);
 
   $effect(() => {
@@ -92,9 +93,9 @@
 <main id="main" tabindex="-1">
   <div role="tabpanel" aria-labelledby="tab-{tab}">
   {#if tab === 'templates'}
-    <Editor />
+    <Editor onprint={() => (tab = 'print')} />
   {:else if tab === 'print'}
-    <PrintView onopenconfig={() => (tab = 'config')} />
+    <PrintView onopenconfig={() => (tab = 'config')} oneditTemplate={() => (tab = 'templates')} />
   {:else if tab === 'config'}
     <ConfigView />
   {:else}

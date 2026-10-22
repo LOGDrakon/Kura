@@ -2,17 +2,13 @@
   import Icon from './Icon.svelte';
   import { studio } from '../lib/state.svelte';
   import { renderLabelSvg } from '../lib/render-svg';
-
-  function confirmRemove(id: string, name: string) {
-    if (confirm(`Supprimer le modèle « ${name} » ?`)) studio.remove(id);
-  }
 </script>
 
 <section class="list card" aria-labelledby="templates-title">
   <div class="head">
     <h2 id="templates-title">Modèles</h2>
-    <button class="btn primary icon" onclick={() => studio.create()} aria-label="Nouveau modèle" title="Nouveau modèle">
-      <Icon name="plus" />
+    <button class="btn primary" onclick={() => studio.create()}>
+      <Icon name="plus" /> <span class="new-lbl">Nouveau</span>
     </button>
   </div>
 
@@ -38,14 +34,6 @@
             <span class="size">{t.width_mm} × {t.height_mm} mm</span>
           </span>
         </button>
-        <div class="actions">
-          <button class="btn ghost icon" onclick={() => studio.duplicate(t.id)} aria-label="Dupliquer « {t.name} »" title="Dupliquer">
-            <Icon name="copy" size={16} />
-          </button>
-          <button class="btn ghost icon danger" onclick={() => confirmRemove(t.id, t.name)} aria-label="Supprimer « {t.name} »" title="Supprimer">
-            <Icon name="trash" size={16} />
-          </button>
-        </div>
       </li>
     {/each}
   </ul>
@@ -118,22 +106,15 @@
   }
   .name {
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
   }
   .size {
     font-size: 0.78rem;
     color: var(--muted);
   }
-  .actions {
-    display: flex;
-    opacity: 0.6;
-  }
-  li:hover .actions,
-  li:focus-within .actions,
-  li.active .actions {
-    opacity: 1;
+  li:not(.active):hover {
+    background: var(--surface-2);
   }
   .compact {
     display: none;
@@ -159,6 +140,13 @@
     }
     .head .btn {
       order: 2;
+    }
+    .new-lbl {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
     }
   }
 </style>

@@ -79,3 +79,18 @@ describe('vecteurs de spec/config-qr.md', () => {
     expect('KURA1E:' + base64url(bytes)).toBe('KURA1E:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaG03Z2DfWlrQsxWg1ahW1gxAi655SsboV_5KQ-U899HgrnDDmMaqtV16WA5IuZB4FTnRBvRlmTPOYXiEL9nQ4fJLU8VrixdrWEZSe_abTvSMbKYqK8ev5LgDUbx9Cf83qTeEHwZDZVVavO4J7SmMUzoMXKW4E_H5m90_8kjBon6oL8Zx7yhwhFtwhg4yI8aDNnWUejjgNr3e-X-mR9X57pPMeZac3cTkWiXkWPypjzoCEmbg');
   });
 });
+
+describe('withDefaults', () => {
+  it('complète les sections absentes sans toucher aux valeurs ni à l’authentification', async () => {
+    const { withDefaults } = await import('./config');
+    const cfg = withDefaults({
+      kura_config_version: 1,
+      server: { base_url: 'http://localhost:8787', auth: { type: 'none' } },
+      scan: { format: 'id', symbologies: ['qr_code'] },
+    });
+    expect(cfg.scan.trigger.aim_area).toBe(0.6);
+    expect(cfg.scan.symbologies).toEqual(['qr_code']);
+    expect(cfg.server.auth).toEqual({ type: 'none' });
+    expect(cfg.burst.enabled).toBe(true);
+  });
+});

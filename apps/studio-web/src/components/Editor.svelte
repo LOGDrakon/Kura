@@ -8,6 +8,8 @@
   import { fill } from '../lib/fields';
   import { SYMBOLOGIES, type ElementKind, type LabelElement } from '../lib/model';
 
+  let { onprint }: { onprint?: () => void } = $props();
+
   const SNAP = 0.5;
   const kindNames: Record<ElementKind, string> = { code: 'Code', text: 'Texte', rect: 'Cadre', image: 'Image' };
 
@@ -196,8 +198,9 @@
     <section class="workspace card" aria-label="Éditeur de l'étiquette « {t.name} »">
       <div class="toolbar" role="toolbar" aria-label="Outils">
         <div class="group">
+          <span class="add-lbl" aria-hidden="true">Ajouter</span>
           <button class="btn" onclick={() => add('text')}><Icon name="text" /><span class="lbl">Texte</span></button>
-          <button class="btn" onclick={() => add('code')}><Icon name="qr" /><span class="lbl">Code</span></button>
+          <button class="btn" onclick={() => add('code')}><Icon name="qr" /><span class="lbl">QR / code-barres</span></button>
           <button class="btn" onclick={() => add('rect')}><Icon name="square" /><span class="lbl">Cadre</span></button>
           <button class="btn" onclick={() => add('image')}><Icon name="image" /><span class="lbl">Image</span></button>
         </div>
@@ -269,7 +272,8 @@
 
       <footer class="foot">
         <span class="dims">{t.width_mm} × {t.height_mm} mm · {t.elements.length} élément{t.elements.length > 1 ? 's' : ''}</span>
-        <span class="tip">Glisser pour déplacer · Alt pour désactiver l'aimantation</span>
+        <span class="tip">{studio.selected ? 'Glisser pour déplacer, poignées pour redimensionner · Suppr pour effacer' : 'Cliquez sur un élément de l’étiquette pour le modifier'}</span>
+        {#if onprint}<button class="btn primary small" onclick={onprint}><Icon name="printer" size={16} /> Imprimer avec ce modèle</button>{/if}
       </footer>
 
       {#if preview.issues.length}
@@ -294,7 +298,7 @@
 <style>
   .editor {
     display: grid;
-    grid-template-columns: 250px minmax(0, 1fr) 320px;
+    grid-template-columns: 230px minmax(0, 1fr) 330px;
     gap: 1rem;
     align-items: start;
   }
@@ -404,9 +408,21 @@
   .sw { left: -8px; bottom: -8px; cursor: nesw-resize; }
   .se { right: -8px; bottom: -8px; cursor: nwse-resize; }
 
+  .add-lbl {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-right: 0.15rem;
+  }
+  .btn.small {
+    min-height: 32px;
+    padding: 0 0.7rem;
+    font-size: 0.85rem;
+  }
   .foot {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     padding: 0.5rem 0.8rem;
@@ -440,7 +456,8 @@
   }
 
   @media (max-width: 560px) {
-    .tip {
+    .tip,
+    .add-lbl {
       display: none;
     }
     /* Libellé masqué visuellement mais lu par les lecteurs d'écran. */

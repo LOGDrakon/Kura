@@ -22,6 +22,23 @@ export function defaultConfig(company = ''): KuraConfig {
   };
 }
 
+/**
+ * Complète une config importée (fichier, éditeur partagé) avec les sections absentes, pour que le
+ * formulaire ait toujours de quoi s'afficher. Ne touche ni aux valeurs présentes, ni à l'authentification.
+ */
+export function withDefaults(config: KuraConfig): KuraConfig {
+  const fill = (target: any, defaults: any) => {
+    for (const [k, v] of Object.entries(defaults)) {
+      if (target[k] === undefined) target[k] = structuredClone(v);
+      else if (k !== 'auth' && v && typeof v === 'object' && !Array.isArray(v) && target[k] && typeof target[k] === 'object') {
+        fill(target[k], v);
+      }
+    }
+    return target;
+  };
+  return fill(structuredClone(config), defaultConfig(String(config.company ?? '')));
+}
+
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
 const validateFn = ajv.compile(schema);

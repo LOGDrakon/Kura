@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
@@ -33,11 +35,13 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.kura.scan.R
 import dev.kura.scan.data.db.QueuedOpEntity
 import dev.kura.scan.ui.common.signed
+import dev.kura.scan.ui.theme.successColor
 
 /** File d'attente : opérations non envoyées ou refusées, relancer / supprimer. */
 @Composable
@@ -53,11 +57,13 @@ fun QueueScreen(vm: QueueViewModel, onCleartextRequired: (String) -> Unit, modif
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(vertical = 12.dp).semantics { heading() },
         )
-        Button(
-            onClick = { vm.cleartextToConfirm()?.let(onCleartextRequired) ?: vm.sendNow() },
-            enabled = !sending && items.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-        ) { Text(stringResource(R.string.queue_send_now)) }
+        if (items.isNotEmpty()) {
+            Button(
+                onClick = { vm.cleartextToConfirm()?.let(onCleartextRequired) ?: vm.sendNow() },
+                enabled = !sending,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            ) { Text(stringResource(R.string.queue_send_now)) }
+        }
         if (vm.manualMode) {
             Text(stringResource(R.string.queue_manual_mode), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         }
@@ -69,7 +75,32 @@ fun QueueScreen(vm: QueueViewModel, onCleartextRequired: (String) -> Unit, modif
             )
         }
         if (items.isEmpty()) {
-            Text(stringResource(R.string.queue_empty), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 24.dp))
+            Column(
+                Modifier.fillMaxWidth().padding(top = 48.dp, start = 16.dp, end = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = successColor(),
+                    modifier = Modifier.size(56.dp),
+                )
+                Text(stringResource(R.string.queue_empty), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                Text(
+                    stringResource(R.string.queue_empty_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        } else {
+            Text(
+                stringResource(R.string.queue_intro),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp),
+            )
         }
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(8.dp),

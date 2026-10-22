@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { studio } from '../lib/state.svelte';
-  import { authHeaders, checkConfig, defaultConfig, expandPath, joinUrl, pruneConfig, stripDefaults, type KuraConfig } from '../lib/config';
+  import { authHeaders, checkConfig, defaultConfig, withDefaults, expandPath, joinUrl, pruneConfig, stripDefaults, type KuraConfig } from '../lib/config';
   import { buildConfigQr, hashPassword, MAX_QR_BYTES } from '../lib/config-qr';
   import { codeGeometry } from '../lib/codes';
   import { download, slug } from '../lib/storage';
@@ -10,6 +10,8 @@
   if (!studio.data.config) {
     studio.data.config = defaultConfig(studio.data.company);
     studio.data.config_updated_at = now();
+  } else {
+    studio.data.config = withDefaults($state.snapshot(studio.data.config) as KuraConfig);
   }
   const cfg = $derived(studio.data.config as KuraConfig);
   let firstRun = true;
@@ -27,6 +29,9 @@
   const output = $derived(pruneConfig($state.snapshot(cfg)));
   const issues = $derived(checkConfig(output));
   const errors = $derived(issues.filter((i) => i.level === 'error'));
+
+  const seconds = (ms: unknown, d: number) => Math.round((Number(ms ?? d) / 1000) * 10) / 10;
+  const toMs = (v: string, min: number, max: number) => Math.min(max, Math.max(min, Math.round(Number(v.replace(',', '.')) * 1000)));
 
   // Listes saisies en texte (« ref, name, location »).
   const listOf = (v: unknown) => (Array.isArray(v) ? v.join(', ') : '');
@@ -172,14 +177,23 @@
 
 <div class="config">
   <div class="forms">
+    <section class="card intro" aria-labelledby="c-intro">
+      <h2 id="c-intro">Relier les téléphones à votre base</h2>
+      <ol>
+        <li>Indiquez l'adresse de votre base ci-dessous et testez la connexion.</li>
+        <li>Ajustez si besoin le comportement de l'appli (les valeurs par défaut conviennent dans la plupart des cas).</li>
+        <li>Générez le <strong>QR de configuration</strong>, puis scannez-le avec Kura Scan sur chaque téléphone.</li>
+      </ol>
+    </section>
+
     <section class="card pad" aria-labelledby="c-server">
-      <h2 id="c-server"><span class="step">1</span> Serveur</h2>
+      <h2 id="c-server"><span class="step">1</span> Connexion à votre base</h2>
       <label class="field">
         <span>Entreprise</span>
         <input bind:value={cfg.company} placeholder="Atelier Dupont" />
       </label>
       <label class="field">
-        <span>Adresse de l'API (base_url)</span>
+        <span>Adresse de l'API de votre base</span>
         <input type="url" bind:value={cfg.server.base_url} placeholder="https://gmao.entreprise.fr/api" spellcheck="false" />
       </label>
       <div class="row">
@@ -192,10 +206,6 @@
             <option value="api_key">Clé d'API (en-tête)</option>
           </select>
         </label>
-        <label class="field">
-          <span>Délai max (ms)</span>
-          <input type="number" min="1000" max="60000" step="500" bind:value={cfg.server.timeout_ms} />
-        </label>
       </div>
       {#if cfg.server.auth?.type === 'basic'}
         <label class="field"><span>Identifiant</span><input bind:value={cfg.server.auth.username} /></label>
@@ -203,12 +213,35 @@
         <label class="field"><span>Nom de l'en-tête</span><input bind:value={cfg.server.auth.header} /></label>
       {/if}
       {#if cfg.server.auth?.type && cfg.server.auth.type !== 'none'}
-        <p class="hint">Le secret n'est jamais écrit dans le fichier de config : il est saisi sur le téléphone, ou transmis par le QR protégé par PIN (étape 6).</p>
+        <p class="hint">Le secret n'est jamais écrit dans le fichier de config : il est saisi sur le téléphone, ou transmis par le QR protégé par un code PIN.</p>
       {/if}
+      <div class="test">
+        <div class="row">
+          <label class="field"><span>Référence d'essai</span><input bind:value={testRef} /></label>
+          {#if cfg.server.auth?.type && cfg.server.auth.type !== 'none'}
+            <label class="field"><span>Secret (non enregistré)</span><input type="password" autocomplete="off" bind:value={secret} /></label>
+          {/if}
+          <button class="btn" onclick={testConnection} disabled={testing || !/^https?:\/\/.+/.test(cfg.server.base_url ?? '')}><Icon name="wifi" /> {testing ? 'Test en cours…' : 'Tester la connexion'}</button>
+        </div>
+        {#if testResult}
+          <div class="notice {testResult.ok ? 'info' : 'error'}" role="status">
+            <strong>{testResult.ok ? '✓ Connexion réussie' : '✗'} {testResult.ok ? '' : testResult.title}</strong>
+            <details><summary>Détail de la réponse</summary><p class="mono small">{testResult.title}</p><pre>{testResult.detail}</pre></details>
+          </div>
+        {/if}
+      </div>
+      <details class="adv">
+        <summary>Réglages avancés</summary>
+        <label class="field">
+          <span>Délai maximal d'attente (secondes)</span>
+          <input type="number" min="1" max="60" step="0.5" value={seconds(cfg.server.timeout_ms, 8000)}
+            onchange={(e) => (cfg.server.timeout_ms = toMs(e.currentTarget.value, 1000, 60000))} />
+        </label>
+      </details>
     </section>
 
     <section class="card pad" aria-labelledby="c-codes">
-      <h2 id="c-codes"><span class="step">2</span> Codes lus</h2>
+      <h2 id="c-codes"><span class="step">2</span> Codes à lire</h2>
       <fieldset>
         <legend class="label">Formats acceptés</legend>
         <div class="checks">
@@ -220,7 +253,7 @@
       <div class="field">
         <span class="label" id="fmt-label">Contenu du code</span>
         <div class="segmented" role="group" aria-labelledby="fmt-label">
-          <button aria-pressed={cfg.scan.format === 'id'} onclick={() => setFormat('id')}>Identifiant seul</button>
+          <button aria-pressed={cfg.scan.format === 'id'} onclick={() => setFormat('id')}>Référence seule</button>
           <button aria-pressed={cfg.scan.format === 'delimited'} onclick={() => setFormat('delimited')}>Champs séparés</button>
           <button aria-pressed={cfg.scan.format === 'json'} onclick={() => setFormat('json')}>JSON</button>
         </div>
@@ -237,7 +270,11 @@
           {/if}
         </div>
       {/if}
-      <label class="field"><span>Préfixe obligatoire (optionnel)</span><input bind:value={cfg.scan.prefix} placeholder="ex. KURA:" /></label>
+      <details class="adv">
+        <summary>Réglages avancés</summary>
+        <label class="field"><span>Préfixe obligatoire (optionnel)</span><input bind:value={cfg.scan.prefix} placeholder="ex. KURA:" /></label>
+        <p class="hint">Si renseigné, les codes qui ne commencent pas par ce texte sont refusés.</p>
+      </details>
     </section>
 
     <section class="card pad" aria-labelledby="c-scan">
@@ -250,21 +287,27 @@
         </div>
         <p class="hint">Avec le bouton, rien n'est lu tant que l'utilisateur n'appuie pas : les codes voisins sont ignorés. « Continu » convient à un poste fixe.</p>
       </div>
-      <div class="row">
-        <label class="field"><span>Durée d'une tentative (ms)</span><input type="number" min="1000" max="30000" step="500" bind:value={cfg.scan.trigger.timeout_ms} /></label>
-        <label class="field"><span>Zone de visée (% largeur)</span>
-          <input type="number" min="20" max="100" step="5" value={Math.round((cfg.scan.trigger.aim_area ?? 0.6) * 100)}
-            onchange={(e) => (cfg.scan.trigger.aim_area = Math.min(1, Math.max(0.2, Number(e.currentTarget.value) / 100)))} />
-        </label>
-      </div>
-      <label class="check"><input type="checkbox" bind:checked={cfg.scan.trigger.volume_keys} /> Les touches de volume déclenchent la lecture</label>
-      <label class="check"><input type="checkbox" bind:checked={cfg.burst.enabled} /> Mode rafale disponible</label>
+      <label class="check"><input type="checkbox" bind:checked={cfg.scan.trigger.volume_keys} /> Les touches de volume déclenchent aussi la lecture</label>
+      <details class="adv">
+        <summary>Réglages avancés</summary>
+        <div class="row">
+          <label class="field"><span>Durée d'une tentative (secondes)</span>
+            <input type="number" min="1" max="30" step="0.5" value={seconds(cfg.scan.trigger.timeout_ms, 6000)}
+              onchange={(e) => (cfg.scan.trigger.timeout_ms = toMs(e.currentTarget.value, 1000, 30000))} />
+          </label>
+          <label class="field"><span>Taille du cadre de visée (% de la largeur)</span>
+            <input type="number" min="20" max="100" step="5" value={Math.round((cfg.scan.trigger.aim_area ?? 0.6) * 100)}
+              onchange={(e) => (cfg.scan.trigger.aim_area = Math.min(1, Math.max(0.2, Number(e.currentTarget.value) / 100)))} />
+          </label>
+        </div>
+      </details>
+      <label class="check"><input type="checkbox" bind:checked={cfg.burst.enabled} /> Mode rafale disponible (chaque lecture = un mouvement, sans ouvrir la fiche)</label>
       {#if cfg.burst.enabled}
         <div class="row">
           <label class="field"><span>Sens par défaut</span>
             <select bind:value={cfg.burst.default_direction}><option value="out">Sortie (−)</option><option value="in">Entrée (+)</option></select>
           </label>
-          <label class="field"><span>Pas par scan</span><input type="number" min="1" step="1" bind:value={cfg.burst.default_step} /></label>
+          <label class="field"><span>Quantité par lecture</span><input type="number" min="1" step="1" bind:value={cfg.burst.default_step} /></label>
         </div>
         <label class="check"><input type="checkbox" bind:checked={cfg.burst.verify_item} /> Vérifier chaque article auprès du serveur</label>
       {/if}
@@ -272,12 +315,12 @@
 
     <section class="card pad" aria-labelledby="c-display">
       <h2 id="c-display"><span class="step">4</span> Fiche article</h2>
-      <label class="field"><span>Champs affichés</span><input value={listOf(cfg.display.show_fields)} onchange={(e) => (cfg.display.show_fields = parseList(e.currentTarget.value))} /></label>
-      <label class="field"><span>Boutons de pas (max 3)</span><input value={listOf(cfg.display.step_buttons)} onchange={(e) => (cfg.display.step_buttons = parseInts(e.currentTarget.value).slice(0, 3))} /></label>
-      <label class="check"><input type="checkbox" bind:checked={cfg.display.allow_set} /> Autoriser la correction directe de la quantité</label>
+      <label class="field"><span>Informations affichées (colonnes de la base, séparées par des virgules)</span><input value={listOf(cfg.display.show_fields)} onchange={(e) => (cfg.display.show_fields = parseList(e.currentTarget.value))} /></label>
+      <label class="field"><span>Boutons + / − (jusqu'à 3 valeurs, ex. 1, 10)</span><input value={listOf(cfg.display.step_buttons)} onchange={(e) => (cfg.display.step_buttons = parseInts(e.currentTarget.value).slice(0, 3))} /></label>
+      <label class="check"><input type="checkbox" bind:checked={cfg.display.allow_set} /> Autoriser la saisie du stock compté (inventaire)</label>
       <label class="check"><input type="checkbox" bind:checked={cfg.display.show_image} /> Afficher une image</label>
       {#if cfg.display.show_image}
-        <label class="field"><span>Chemin de l'image</span><input bind:value={cfg.display.image_url} placeholder="/items/{'{ref}'}/image" /></label>
+        <label class="field"><span>Adresse de l'image (relative à la base)</span><input bind:value={cfg.display.image_url} placeholder="/items/{'{ref}'}/image" /></label>
       {/if}
     </section>
 
@@ -287,7 +330,7 @@
         <label class="field"><span>Envoi</span>
           <select bind:value={cfg.sync.mode}><option value="auto">Automatique</option><option value="manual">Manuel</option></select>
         </label>
-        <label class="check"><input type="checkbox" bind:checked={cfg.sync.batch} /> Envoi par lots</label>
+        <label class="check"><input type="checkbox" bind:checked={cfg.sync.batch} /> Regrouper les envois</label>
       </div>
       <label class="check"><input type="checkbox" bind:checked={cfg.security.require_user} /> Demander l'identifiant de l'utilisateur</label>
       <div class="field">
@@ -307,30 +350,12 @@
       </div>
     </section>
 
-    <section class="card pad" aria-labelledby="c-test">
-      <h2 id="c-test"><span class="step">6</span> Tester la connexion</h2>
-      <div class="row">
-        <label class="field"><span>Référence d'essai</span><input bind:value={testRef} /></label>
-        {#if cfg.server.auth?.type && cfg.server.auth.type !== 'none'}
-          <label class="field"><span>Secret (non enregistré)</span><input type="password" autocomplete="off" bind:value={secret} /></label>
-        {/if}
-      </div>
-      <div><button class="btn" onclick={testConnection} disabled={testing || !/^https?:\/\/.+/.test(cfg.server.base_url ?? '')}><Icon name="wifi" /> {testing ? 'Test en cours…' : 'Tester'}</button></div>
-      {#if testResult}
-        <div class="notice {testResult.ok ? 'info' : 'error'}" role="status">
-          <strong>{testResult.ok ? '✓' : '✗'} {testResult.title}</strong>
-          <pre>{testResult.detail}</pre>
-        </div>
-      {/if}
-    </section>
   </div>
 
   <aside class="out">
-    <section class="card pad" aria-labelledby="c-out">
-      <div class="out-head">
-        <h2 id="c-out">kura-config.json</h2>
-        <button class="btn ghost" onclick={reset}>Réinitialiser</button>
-      </div>
+    <section class="card pad qr-card" aria-labelledby="c-qr">
+      <h2 id="c-qr"><Icon name="phone" /> QR de configuration</h2>
+      <p class="hint">Sur chaque téléphone : ouvrez Kura Scan, appuyez sur « Scanner » et visez ce code. L'appli est prête en quelques secondes.</p>
       {#if issues.length}
         <ul class="issues" aria-label="Problèmes de configuration">
           {#each issues as i (i.path + i.message)}<li class={i.level}><strong>{i.path}</strong> : {i.message}</li>{/each}
@@ -338,14 +363,6 @@
       {:else}
         <p class="notice info">✓ Configuration valide</p>
       {/if}
-      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-      <pre class="json" tabindex="0" role="region" aria-label="Contenu du fichier">{JSON.stringify(output, null, 2)}</pre>
-      <button class="btn primary" onclick={downloadJson} disabled={errors.length > 0}><Icon name="download" /> Télécharger le fichier</button>
-    </section>
-
-    <section class="card pad" aria-labelledby="c-qr">
-      <h2 id="c-qr">QR de configuration</h2>
-      <p class="hint">Les employés scannent ce code depuis Kura Scan pour être configurés en quelques secondes.</p>
       {#if cfg.server.auth?.type && cfg.server.auth.type !== 'none'}
         <div class="row">
           <label class="field"><span>Inclure le secret (optionnel)</span><input type="password" autocomplete="off" bind:value={qrSecret} /></label>
@@ -353,7 +370,7 @@
         </div>
         {#if qrSecret}<p class="hint">Le secret est chiffré par le PIN (AES-256). Communiquez le PIN séparément, jamais sur la même feuille.</p>{/if}
       {/if}
-      <button class="btn" onclick={makeQr} disabled={errors.length > 0 || qrBusy}><Icon name="qr" /> Générer le QR</button>
+      <button class="btn primary" onclick={makeQr} disabled={errors.length > 0 || qrBusy}><Icon name="qr" /> {qrSvg ? 'Mettre à jour le QR' : 'Générer le QR'}</button>
       {#if qrError}<p class="notice error" role="alert">{qrError}</p>{/if}
       {#if qrSvg}
         <div class="qr" role="img" aria-label="QR code de configuration">{@html qrSvg}</div>
@@ -363,6 +380,17 @@
         </div>
       {/if}
     </section>
+
+    <details class="card pad tech">
+      <summary>Fichier technique (kura-config.json)</summary>
+      <p class="hint">Alternative au QR : à copier sur le téléphone (Réglages › Charger un fichier) ou à déployer par la gestion de flotte.</p>
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <pre class="json" tabindex="0" role="region" aria-label="Contenu du fichier">{JSON.stringify(output, null, 2)}</pre>
+      <div class="buttons">
+        <button class="btn" onclick={downloadJson} disabled={errors.length > 0}><Icon name="download" /> Télécharger le fichier</button>
+        <button class="btn ghost danger" onclick={reset}>Repartir de zéro</button>
+      </div>
+    </details>
   </aside>
 </div>
 
@@ -419,9 +447,53 @@
   }
   .segmented {
     flex-wrap: wrap;
+    justify-self: start;
   }
   form.row {
     align-items: end;
+  }
+  .intro {
+    padding: 1.1rem 1.2rem;
+    background: var(--accent-soft);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .intro ol {
+    margin: 0.5rem 0 0;
+    padding-left: 1.3rem;
+    display: grid;
+    gap: 0.2rem;
+  }
+  .test {
+    display: grid;
+    gap: 0.6rem;
+    padding-top: 0.8rem;
+    border-top: 1px dashed var(--border);
+  }
+  .test .row {
+    align-items: end;
+  }
+  .adv summary,
+  .tech summary {
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .adv[open] {
+    display: grid;
+    gap: 0.6rem;
+  }
+  .tech summary {
+    font-size: 0.95rem;
+  }
+  .qr-card h2 :global(svg) {
+    color: var(--accent);
+  }
+  .small {
+    font-size: 0.8rem;
+  }
+  .mono {
+    font-family: var(--mono);
   }
   .out-head {
     display: flex;

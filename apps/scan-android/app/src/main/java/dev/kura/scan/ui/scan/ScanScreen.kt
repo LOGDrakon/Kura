@@ -83,6 +83,8 @@ fun ScanScreen(
     vm: ScanViewModel,
     twoPane: Boolean,
     onLoadFile: () -> Unit,
+    queueCount: Int = 0,
+    onOpenQueue: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -101,7 +103,9 @@ fun ScanScreen(
             config = state.config,
             onStep = vm::onStep,
             onQuantity = vm::onQuantityInput,
+            onReset = vm::resetPending,
             onValidate = vm::onValidate,
+            onScanNext = vm::scanNext,
             onClose = vm::closeItem,
             modifier = modifier.fillMaxSize(),
         )
@@ -110,7 +114,7 @@ fun ScanScreen(
 
     if (twoPane) {
         Row(modifier.fillMaxSize()) {
-            ScanColumn(state, vm, onLoadFile, showSidePanelInline = false, modifier = Modifier.weight(1f).fillMaxHeight())
+            ScanColumn(state, vm, onLoadFile, queueCount, onOpenQueue, showSidePanelInline = false, modifier = Modifier.weight(1f).fillMaxHeight())
             Box(Modifier.weight(1f).widthIn(max = 520.dp).fillMaxHeight()) {
                 when {
                     state.config == null -> Unit
@@ -120,7 +124,9 @@ fun ScanScreen(
                         config = state.config,
                         onStep = vm::onStep,
                         onQuantity = vm::onQuantityInput,
+                        onReset = vm::resetPending,
                         onValidate = vm::onValidate,
+                        onScanNext = vm::scanNext,
                         onClose = vm::closeItem,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -134,7 +140,7 @@ fun ScanScreen(
             }
         }
     } else {
-        ScanColumn(state, vm, onLoadFile, showSidePanelInline = true, modifier = modifier.fillMaxSize())
+        ScanColumn(state, vm, onLoadFile, queueCount, onOpenQueue, showSidePanelInline = true, modifier = modifier.fillMaxSize())
     }
 
     CleartextDialog(state.cleartextPrompt, vm)
@@ -162,6 +168,8 @@ private fun ScanColumn(
     state: ScanUiState,
     vm: ScanViewModel,
     onLoadFile: () -> Unit,
+    queueCount: Int,
+    onOpenQueue: () -> Unit,
     showSidePanelInline: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -171,6 +179,7 @@ private fun ScanColumn(
         if (config == null) {
             OnboardingHeader(onLoadFile)
         } else {
+            StatusRow(config.company, queueCount, onOpenQueue)
             ModeControls(state, vm)
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -182,6 +191,40 @@ private fun ScanColumn(
         }
         ScannerButton(state, vm::onScanButton)
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+/** Entreprise + état d'envoi ; la pastille « N en attente » mène à la file. */
+@Composable
+private fun StatusRow(company: String?, queueCount: Int, onOpenQueue: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            company ?: stringResource(R.string.app_name),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        val pending = queueCount > 0
+        val color = if (pending) dev.kura.scan.ui.theme.deltaColor(-1) else successColor()
+        val cd = if (pending) stringResource(R.string.status_pending_cd, queueCount) else stringResource(R.string.status_synced)
+        androidx.compose.material3.Surface(
+            onClick = onOpenQueue,
+            enabled = pending,
+            shape = MaterialTheme.shapes.extraLarge,
+            color = color.copy(alpha = 0.14f),
+            contentColor = color,
+            modifier = Modifier.heightIn(min = 36.dp).semantics { contentDescription = cd },
+        ) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Canvas(Modifier.size(8.dp)) { drawCircle(color) }
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    if (pending) stringResource(R.string.status_pending, queueCount) else stringResource(R.string.status_synced),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
     }
 }
 
@@ -221,15 +264,28 @@ private fun ModeControls(state: ScanUiState, vm: ScanViewModel) {
             }
         }
     }
+    val hint = if (state.mode == ScanMode.BURST) {
+        stringResource(R.string.mode_burst_hint, dev.kura.scan.ui.common.signed(state.burstStep.toLong() * state.direction.sign))
+    } else {
+        stringResource(R.string.mode_item_hint)
+    }
+    if (burstEnabled) {
+        Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
+    }
     if (state.mode == ScanMode.BURST) {
         val dirLabel = stringResource(R.string.direction_label)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().semantics { contentDescription = dirLabel }) {
             val dirs = listOf(Direction.IN to R.string.direction_in, Direction.OUT to R.string.direction_out)
             dirs.forEachIndexed { i, (dir, label) ->
+                val accent = dev.kura.scan.ui.theme.deltaColor(dir.sign.toLong())
                 SegmentedButton(
                     selected = state.direction == dir,
                     onClick = { vm.setDirection(dir) },
                     shape = SegmentedButtonDefaults.itemShape(i, dirs.size),
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = accent.copy(alpha = 0.16f),
+                        activeContentColor = accent,
+                    ),
                     modifier = Modifier.heightIn(min = 48.dp),
                 ) {
                     val sign = if (dir == Direction.IN) "+" else "−"
@@ -289,6 +345,19 @@ private fun CameraArea(state: ScanUiState, vm: ScanViewModel, modifier: Modifier
                     modifier = Modifier.fillMaxSize(),
                 )
                 AimOverlay(aim, state.trigger, Modifier.fillMaxSize())
+                if (state.trigger == TriggerUi.Idle) {
+                    Text(
+                        stringResource(R.string.scan_idle_hint),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleSmall,
+                        textAlign = TextAlign.Center,
+                        // Au centre du cadre de visée, vide tant que la lecture n'est pas lancée.
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .widthIn(max = 220.dp)
+                            .padding(horizontal = 16.dp),
+                    )
+                }
                 if (state.hasTorch) {
                     FilledTonalIconButton(
                         onClick = vm::toggleTorch,

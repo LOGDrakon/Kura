@@ -79,7 +79,7 @@ fun KuraRoot(windowSize: WindowSizeClass, scanVm: ScanViewModel = viewModel()) {
 
     val content: @Composable (Modifier) -> Unit = { mod ->
         when (current) {
-            Tab.SCAN -> ScanScreen(scanVm, twoPane = wide, onLoadFile = loadFile, modifier = mod)
+            Tab.SCAN -> ScanScreen(scanVm, twoPane = wide, onLoadFile = loadFile, queueCount = queueCount, onOpenQueue = { tab = Tab.QUEUE }, modifier = mod)
             Tab.QUEUE -> QueueScreen(queueVm, onCleartextRequired = { url -> scanVm.promptCleartext(url); tab = Tab.SCAN }, modifier = mod)
             Tab.SETTINGS -> SettingsScreen(
                 settingsVm,

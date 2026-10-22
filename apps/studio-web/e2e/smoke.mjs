@@ -47,6 +47,7 @@ const step = (name) => console.log(`• ${name}`);
 // --- Éditeur ---
 const { context, page } = await open('file://' + dist);
 step('modèle de départ affiché');
+await page.getByRole('tab', { name: 'Modèles' }).click();
 await page.getByRole('button', { name: /QR Code « \{ref\} »/ }).waitFor();
 await axe(page, 'éditeur');
 await shot(page, '1-editeur');
@@ -85,7 +86,7 @@ await page.getByLabel('Nom', { exact: true }).fill('Bac atelier');
 
 // --- Impression ---
 step('impression : liste de références et PDF');
-await page.getByRole('tab', { name: 'Impression' }).click();
+await page.getByRole('tab', { name: 'Imprimer' }).click();
 await page.getByLabel(/Une référence par ligne/).fill('REF-0042\nREF-0043\nREF-0100');
 await page.getByRole('button', { name: 'Planche A4' }).click();
 await axe(page, 'impression');
@@ -97,7 +98,7 @@ assert.equal(readFileSync(pdfPath).subarray(0, 5).toString(), '%PDF-');
 
 // --- Configuration ---
 step('configuration : validation et QR');
-await page.getByRole('tab', { name: 'Configuration' }).click();
+await page.getByRole('tab', { name: 'Appli mobile' }).click();
 await page.getByLabel(/Adresse de l'API/).fill('https://gmao.exemple.fr/api');
 await page.getByText('✓ Configuration valide').waitFor();
 await page.getByRole('button', { name: 'Générer le QR' }).click();
@@ -107,7 +108,7 @@ await shot(page, '4-configuration');
 
 // --- Partage ---
 step('partage : l’éditeur exporté embarque les modèles');
-await page.getByRole('tab', { name: 'Partage' }).click();
+await page.getByRole('tab', { name: 'Partager' }).click();
 await page.getByLabel(/Nom de l'entreprise/).fill('Atelier Dupont');
 await shot(page, '5-partage');
 const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Télécharger l'éditeur/ }).click()]);
@@ -118,9 +119,10 @@ await context.close();
 // Un autre poste (navigateur vierge) ouvre l'éditeur partagé.
 const other = await open('file://' + sharedPath);
 await other.page.getByText('Atelier Dupont').first().waitFor();
+await other.page.getByRole('tab', { name: 'Modèles' }).click();
 await other.page.getByRole('button', { name: /^Bac atelier/ }).waitFor();
 await other.page.getByRole('button', { name: /Texte « Marque : \{brand\} »/ }).waitFor();
-await other.page.getByRole('tab', { name: 'Configuration' }).click();
+await other.page.getByRole('tab', { name: 'Appli mobile' }).click();
 assert.equal(await other.page.getByLabel(/Adresse de l'API/).inputValue(), 'https://gmao.exemple.fr/api');
 // Le fichier partagé peut lui-même être repartagé (le HTML d'origine reste intact).
 const html = readFileSync(sharedPath, 'utf8');
@@ -146,7 +148,7 @@ await fetch(`${api}/_debug/items`, {
 });
 
 const db = await open('file://' + dist);
-await db.page.getByRole('tab', { name: 'Configuration' }).click();
+await db.page.getByRole('tab', { name: 'Appli mobile' }).click();
 await db.page.getByLabel(/Adresse de l'API/).fill(api);
 await db.page.getByLabel('Authentification').selectOption('none');
 await db.page.getByRole('tab', { name: 'Modèles' }).click();
@@ -154,8 +156,8 @@ await db.page.getByRole('tab', { name: 'Modèles' }).click();
 await db.page.locator('.stage').click({ position: { x: 5, y: 5 } });
 await db.page.locator('.fields li', { hasText: '{name}' }).getByLabel('Obligatoire').check();
 
-await db.page.getByRole('tab', { name: 'Impression' }).click();
-await db.page.getByRole('button', { name: "Base de l'entreprise" }).click();
+await db.page.getByRole('tab', { name: 'Imprimer' }).click();
+await db.page.getByRole('button', { name: 'Votre base' }).click();
 await db.page.getByLabel(/Rechercher/).fill('parker');
 await db.page.getByRole('button', { name: 'Rechercher' }).click();
 await db.page.getByRole('list', { name: 'Articles du serveur' }).getByText('REF-0500').waitFor();
@@ -188,7 +190,7 @@ const overflow = await mobile.page.evaluate(() => document.documentElement.scrol
 assert.ok(overflow <= 1, `défilement horizontal sur mobile (${overflow}px)`);
 await axe(mobile.page, 'mobile');
 await shot(mobile.page, '6-mobile');
-await mobile.page.getByRole('tab', { name: 'Impression' }).click();
+await mobile.page.getByRole('tab', { name: 'Imprimer' }).click();
 await shot(mobile.page, '7-mobile-impression');
 await mobile.context.close();
 
