@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kura.dev/spec/config.schema.json",
+  "title": "Kura configuration",
+  "description": "Fichier kura-config.json chargé par Kura Scan. Produit par Kura Studio. Ne contient jamais de secret en clair.",
+  "type": "object",
+  "required": ["kura_config_version", "server", "scan"],
+  "additionalProperties": false,
+  "properties": {
+    "kura_config_version": { "const": 1 },
+    "company": { "type": "string", "maxLength": 120 },
+
+    "server": {
+      "type": "object",
+      "required": ["base_url"],
+      "additionalProperties": false,
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://",
+          "description": "HTTPS fortement recommandé ; l'appli affiche un avertissement en HTTP."
+        },
+        "auth": { "$ref": "#/$defs/auth" },
+        "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 60000, "default": 8000 }
+      }
+    },
+
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbologies": {
+          "description": "Formats acceptés par le lecteur (ZXing). Restreindre la liste accélère la lecture et évite les faux positifs.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["qr_code", "data_matrix", "ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf"]
+          },
+          "default": ["qr_code", "ean_13", "ean_8", "code_128"]
+        },
+        "format": {
+          "description": "Contenu du code. 'id' : le code ne contient que l'identifiant (recommandé). 'delimited' / 'json' : données embarquées dans le code.",
+          "enum": ["id", "delimited", "json"],
+          "default": "id"
+        },
+        "delimiter": { "type": "string", "minLength": 1, "maxLength": 4, "default": ";" },
+        "fields": {
+          "description": "Noms des champs, dans l'ordre pour 'delimited', ou clés attendues pour 'json'.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/field_name" },
+          "uniqueItems": true
+        },
+        "id_field": { "$ref": "#/$defs/field_name", "default": "ref" },
+        "prefix": {
+          "description": "Préfixe optionnel à retirer avant analyse (ex. 'KURA:'). Un code sans ce préfixe est refusé.",
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "format": { "enum": ["delimited", "json"] } }, "required": ["format"] },
+          "then": { "required": ["fields", "id_field"] }
+        }
+      ]
+    },
+
+    "endpoints": {
+      "description": "Surcharge des routes du contrat Kura standard. Les {variables} sont remplacées par les champs scannés ou les champs de l'opération.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "get_item": { "$ref": "#/$defs/endpoint" },
+        "send_op": { "$ref": "#/$defs/endpoint" },
+        "send_batch": { "$ref": "#/$defs/endpoint" },
+        "get_config": { "$ref": "#/$defs/endpoint" }
+      }
+    },
+
+    "request_mapping": {
+      "description": "Corps envoyé pour une opération quand le serveur ne parle pas le contrat Kura. Clé = nom attendu par le serveur, valeur = gabarit '{variable}'. Absent = corps standard Kura.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+
+    "response_mapping": {
+      "description": "Chemins (notation pointée) pour lire la réponse de get_item quand elle ne suit pas le contrat. Ex. { \"quantity\": \"data.stock\" }.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "show_fields": { "type": "array", "items": { "$ref": "#/$defs/field_name" } },
+        "field_labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "show_image": { "type": "boolean", "default": false },
+        "image_url": { "type": "string" },
+        "image_cache": { "type": "boolean", "default": true },
+        "step_buttons": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 10000 },
+          "maxItems": 3,
+          "uniqueItems": true,
+          "default": [1]
+        },
+        "allow_set": {
+          "description": "Autorise la correction directe de la quantité (opération 'set').",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+
+    "burst": {
+      "description": "Mode rafale : chaque scan crée immédiatement une opération delta, sans passer par la fiche.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "default_direction": { "enum": ["in", "out"], "default": "out" },
+        "default_step": { "type": "integer", "minimum": 1, "default": 1 },
+        "same_code_cooldown_ms": {
+          "description": "Délai pendant lequel un même code relu par la caméra est ignoré (évite les doubles comptages involontaires).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "default": 1500
+        },
+        "verify_item": {
+          "description": "Interroge get_item à chaque scan pour signaler un article inconnu (nécessite le réseau).",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+
+    "sync": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["auto", "manual"], "default": "auto" },
+        "batch": {
+          "description": "Utilise send_batch pour vider la file.",
+          "type": "boolean",
+          "default": true
+        },
+        "max_batch_size": { "type": "integer", "minimum": 1, "maximum": 500, "default": 50 },
+        "retry_backoff_s": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 1,
+          "default": [5, 30, 120]
+        }
+      }
+    },
+
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "config_locked": { "type": "boolean", "default": false },
+        "config_password_hash": {
+          "description": "Hash argon2id au format PHC. Jamais de mot de passe en clair.",
+          "type": "string",
+          "pattern": "^\\$?argon2id\\$"
+        },
+        "require_user": {
+          "description": "Demande un identifiant utilisateur à l'ouverture de l'appli (envoyé dans le champ 'user').",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+
+    "remote_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "url": { "type": "string" },
+        "auto_update": { "type": "boolean", "default": false },
+        "signing_public_key": {
+          "description": "Clé publique Ed25519 (SPKI DER encodé en base64) qui doit avoir signé toute config distante.",
+          "type": "string"
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "field_name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$" },
+
+    "endpoint": {
+      "type": "object",
+      "required": ["method", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH"] },
+        "path": { "type": "string", "pattern": "^/" }
+      }
+    },
+
+    "auth": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["none", "bearer", "basic", "api_key"] },
+        "token_ref": {
+          "description": "Où trouver le secret. 'secure_store' : saisi sur l'appareil ou injecté par le QR de config chiffré, conservé dans l'Android Keystore.",
+          "enum": ["secure_store", "mdm"],
+          "default": "secure_store"
+        },
+        "header": {
+          "description": "Nom de l'en-tête pour 'api_key'.",
+          "type": "string",
+          "default": "X-Api-Key"
+        },
+        "username": { "description": "Pour 'basic' (le mot de passe reste dans le secure store).", "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

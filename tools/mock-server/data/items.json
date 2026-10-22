@@ -1,0 +1,8 @@
+[
+  { "ref": "REF-0042", "name": "Vis M6 x 20 inox", "location": "A12", "quantity": 250, "unit": "pcs" },
+  { "ref": "REF-0043", "name": "Écrou M6 inox", "location": "A13", "quantity": 400, "unit": "pcs" },
+  { "ref": "REF-0100", "name": "Courroie trapézoïdale SPZ 1250", "location": "B04", "quantity": 6, "unit": "pcs" },
+  { "ref": "REF-0201", "name": "Roulement 6204-2RS", "location": "C01", "quantity": 18, "unit": "pcs" },
+  { "ref": "REF-0300", "name": "Graisse lithium 400 g", "location": "D02", "quantity": 9, "unit": "pcs" },
+  { "ref": "3760123456789", "name": "Gants nitrile T9 (boîte)", "location": "E01", "quantity": 32, "unit": "boîtes" }
+]

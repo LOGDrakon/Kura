@@ -1,0 +1,13 @@
+{
+  "name": "@kura/mock-server",
+  "version": "0.1.0",
+  "description": "Serveur de démonstration implémentant le contrat d'API Kura",
+  "license": "Apache-2.0",
+  "private": true,
+  "main": "server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "kura_config_version": 1,
+  "company": "Démo Kura",
+  "server": {
+    "base_url": "http://10.0.2.2:8787",
+    "auth": { "type": "none" }
+  },
+  "scan": {
+    "format": "id"
+  }
+}

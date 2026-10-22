@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.DS_Store
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Go
+/apps/bridge/bin/
+
+# Configs locales (peuvent contenir des URL internes)
+kura-config.local.json

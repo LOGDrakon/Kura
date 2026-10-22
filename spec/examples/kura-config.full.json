@@ -1,0 +1,56 @@
+{
+  "kura_config_version": 1,
+  "company": "Atelier Dupont",
+  "server": {
+    "base_url": "https://gmao.entreprise.fr/api",
+    "auth": { "type": "bearer", "token_ref": "secure_store" },
+    "timeout_ms": 8000
+  },
+  "scan": {
+    "symbologies": ["qr_code", "ean_13", "code_128"],
+    "format": "delimited",
+    "delimiter": ";",
+    "fields": ["ref", "name", "location"],
+    "id_field": "ref"
+  },
+  "endpoints": {
+    "get_item": { "method": "GET", "path": "/items/{ref}" },
+    "send_op": { "method": "POST", "path": "/stock/movements" }
+  },
+  "request_mapping": {
+    "article": "{item_id}",
+    "quantite": "{value}",
+    "mode": "{type}",
+    "horodatage": "{client_ts}",
+    "id_unique": "{op_id}"
+  },
+  "response_mapping": {
+    "name": "designation",
+    "location": "emplacement",
+    "quantity": "stock.disponible"
+  },
+  "display": {
+    "show_fields": ["name", "location", "quantity"],
+    "field_labels": { "name": "Désignation", "location": "Emplacement", "quantity": "Stock" },
+    "show_image": true,
+    "image_url": "/items/{ref}/image",
+    "image_cache": true,
+    "step_buttons": [1, 10],
+    "allow_set": true
+  },
+  "burst": {
+    "enabled": true,
+    "default_direction": "out",
+    "default_step": 1,
+    "same_code_cooldown_ms": 1500,
+    "verify_item": false
+  },
+  "sync": { "mode": "auto", "batch": false, "retry_backoff_s": [5, 30, 120] },
+  "security": {
+    "config_locked": true,
+    "config_password_hash": "$argon2id$v=19$m=65536,t=3,p=4$c2FsdHNhbHRzYWx0$5u0yG9pXq1o7m8Ww8d0mPq2rWkV8sF5aYbC3dE4fG6h",
+    "require_user": true
+  },
+  "remote_config": { "enabled": true, "url": "/kura/config", "auto_update": false,
+    "signing_public_key": "MCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=" }
+}

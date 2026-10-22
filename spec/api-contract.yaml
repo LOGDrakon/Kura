@@ -1,0 +1,238 @@
+openapi: 3.1.0
+info:
+  title: Contrat d'API Kura
+  version: 0.1.0
+  summary: Échange minimal entre Kura Scan et le système de l'entreprise.
+  description: |
+    Trois besoins seulement : lire un article, envoyer des opérations, récupérer la config.
+
+    ## Opérations et résolution de conflit
+    - `delta` (ex. -1) : **additionné**, jamais perdu.
+    - `set` (ex. quantité = 12) : **le plus récent `client_ts` gagne**.
+
+    Le stock d'un article se calcule donc ainsi, quel que soit l'ordre d'arrivée des opérations :
+
+        quantité = valeur du set le plus récent (ou stock initial s'il n'y en a pas)
+                 + somme des delta dont client_ts est postérieur à ce set
+
+    Départage de deux `set` au même `client_ts` : `op_id` le plus grand (ordre lexicographique).
+
+    ## Idempotence
+    `op_id` (UUID v4 généré par l'appareil) identifie une opération de façon unique.
+    Un renvoi du même `op_id` ne doit **jamais** être appliqué deux fois : le serveur répond `duplicate`.
+
+    ## Horloges
+    Le serveur enregistre `server_received_at` à la réception. `client_ts` reste la référence
+    pour l'ordre des `set`, mais l'écart entre les deux permet de repérer un appareil mal réglé.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+
+servers:
+  - url: http://localhost:8787
+    description: Kura Mock Server
+
+security:
+  - bearer: []
+  - {}
+
+paths:
+  /items/{ref}:
+    get:
+      operationId: getItem
+      summary: Infos d'un article
+      description: Optionnel si toutes les infos sont encodées dans le code scanné.
+      parameters:
+        - $ref: '#/components/parameters/Ref'
+      responses:
+        '200':
+          description: Article trouvé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Item' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Article inconnu
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /items/{ref}/image:
+    get:
+      operationId: getItemImage
+      summary: Image d'un article (optionnel)
+      parameters:
+        - $ref: '#/components/parameters/Ref'
+      responses:
+        '200':
+          description: Image
+          headers:
+            ETag: { schema: { type: string } }
+            Cache-Control: { schema: { type: string } }
+          content:
+            image/*: {}
+        '404': { description: Pas d'image }
+
+  /operations:
+    post:
+      operationId: sendOperation
+      summary: Envoie une opération
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Operation' }
+      responses:
+        '200':
+          description: Résultat (y compris `duplicate`, `superseded` ou `rejected`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationResult' }
+        '400':
+          description: Requête mal formée (JSON illisible)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /operations/batch:
+    post:
+      operationId: sendOperationsBatch
+      summary: Envoie un lot d'opérations (vidage de la file offline)
+      description: |
+        Chaque opération est traitée indépendamment : un rejet n'annule pas les autres.
+        Les résultats sont renvoyés dans le même ordre que les opérations envoyées.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operations]
+              properties:
+                operations:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items: { $ref: '#/components/schemas/Operation' }
+      responses:
+        '200':
+          description: Résultats par opération
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/OperationResult' }
+        '400':
+          description: Requête mal formée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /config:
+    get:
+      operationId: getConfig
+      summary: Config à jour (optionnel)
+      description: |
+        Renvoie la config et sa signature Ed25519 (sur les octets exacts de `config`, encodé en JSON).
+        L'appli refuse une config dont la signature ne correspond pas à `remote_config.signing_public_key`.
+      responses:
+        '200':
+          description: Config
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [config]
+                properties:
+                  config:
+                    type: string
+                    description: Contenu de kura-config.json, sérialisé.
+                  signature:
+                    type: string
+                    description: Signature Ed25519 en base64.
+        '404': { description: Pas de config distante }
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+
+  parameters:
+    Ref:
+      name: ref
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+
+  responses:
+    Unauthorized:
+      description: Authentification absente ou invalide
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Item:
+      type: object
+      required: [ref]
+      properties:
+        ref: { type: string }
+        name: { type: string }
+        location: { type: string }
+        quantity: { type: integer }
+        unit: { type: string, examples: [pcs, m, kg] }
+        image_url: { type: string, description: URL absolue ou relative au base_url }
+      additionalProperties: true
+      description: Les champs supplémentaires sont affichables via display.show_fields.
+
+    Operation:
+      type: object
+      required: [op_id, item_id, type, value, client_ts]
+      properties:
+        op_id: { type: string, format: uuid }
+        item_id: { type: string, minLength: 1, maxLength: 128 }
+        type: { enum: [delta, set] }
+        value:
+          type: integer
+          description: Pour `delta`, non nul (positif = entrée, négatif = sortie). Pour `set`, >= 0.
+        client_ts: { type: string, format: date-time }
+        device_id: { type: string }
+        user: { type: string }
+        session_id:
+          type: string
+          description: Identifiant de la session de scan (mode rafale), pour regrouper les mouvements.
+
+    OperationResult:
+      type: object
+      required: [op_id, status]
+      properties:
+        op_id: { type: string }
+        status:
+          description: |
+            - `applied` : prise en compte.
+            - `duplicate` : déjà reçue, ignorée (l'appli la retire de sa file).
+            - `superseded` : `set` plus ancien qu'un `set` déjà connu ; enregistrée mais sans effet
+              sur la quantité. L'appli la retire de sa file et peut l'indiquer à l'utilisateur.
+            - `rejected` : refusée (voir `reason`). L'appli la garde en erreur, l'utilisateur décide.
+          enum: [applied, duplicate, superseded, rejected]
+        reason:
+          enum: [invalid, unknown_item, forbidden, conflict, server_error]
+        message: { type: string }
+        quantity:
+          type: integer
+          description: Quantité de l'article après traitement, si connue.
+        server_received_at: { type: string, format: date-time }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        message: { type: string }

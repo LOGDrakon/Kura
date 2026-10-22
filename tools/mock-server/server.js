@@ -1,0 +1,158 @@
+'use strict';
+
+// Kura Mock Server : implémentation de référence du contrat (spec/api-contract.yaml).
+// Zéro dépendance, données en mémoire. Ne pas utiliser en production.
+
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const { Store } = require('./lib/store');
+
+const MAX_BODY = 1024 * 1024;
+const MAX_BATCH = 500;
+
+function loadItems(file) {
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+function send(res, status, body, headers = {}) {
+  const payload = typeof body === 'string' ? body : JSON.stringify(body);
+  res.writeHead(status, {
+    'Content-Type': typeof body === 'string' ? 'text/plain; charset=utf-8' : 'application/json; charset=utf-8',
+    ...headers,
+  });
+  res.end(payload);
+}
+
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY) {
+        reject(Object.assign(new Error('corps trop volumineux'), { status: 413 }));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch {
+        reject(Object.assign(new Error('JSON illisible'), { status: 400 }));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function placeholderImage(item) {
+  const label = String(item.name || item.ref).replace(/[<>&"]/g, '');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200">
+  <rect width="320" height="200" fill="#e8edf2"/>
+  <text x="160" y="95" font-family="sans-serif" font-size="18" text-anchor="middle" fill="#334">${label}</text>
+  <text x="160" y="125" font-family="monospace" font-size="14" text-anchor="middle" fill="#667">${item.ref}</text>
+</svg>`;
+}
+
+function createServer({
+  items = loadItems(path.join(__dirname, 'data', 'items.json')),
+  token = null,
+  config = null,
+  latencyMs = 0,
+  log = () => {},
+} = {}) {
+  const store = new Store(items);
+
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+    log(`${req.method} ${url.pathname}`);
+
+    if (latencyMs) await new Promise((r) => setTimeout(r, latencyMs));
+
+    if (req.method === 'GET' && url.pathname === '/health') {
+      return send(res, 200, { status: 'ok' });
+    }
+
+    if (token && req.headers.authorization !== `Bearer ${token}`) {
+      return send(res, 401, { error: 'unauthorized', message: 'Bearer token absent ou invalide' });
+    }
+
+    try {
+      if (req.method === 'GET' && parts[0] === 'items' && parts.length === 2) {
+        const item = store.getItem(parts[1]);
+        if (!item) return send(res, 404, { error: 'not_found', message: `article inconnu : ${parts[1]}` });
+        return send(res, 200, { ...item, image_url: `/items/${encodeURIComponent(item.ref)}/image` });
+      }
+
+      if (req.method === 'GET' && parts[0] === 'items' && parts[2] === 'image' && parts.length === 3) {
+        const item = store.getItem(parts[1]);
+        if (!item) return send(res, 404, { error: 'not_found' });
+        return send(res, 200, placeholderImage(item), {
+          'Content-Type': 'image/svg+xml',
+          'Cache-Control': 'max-age=86400',
+          ETag: `"${item.ref}"`,
+        });
+      }
+
+      // Journal d'un article : pratique pour vérifier ce que l'appli a envoyé (hors contrat).
+      if (req.method === 'GET' && parts[0] === '_debug' && parts[1] === 'journal' && parts.length === 3) {
+        const journal = store.journal(parts[2]);
+        if (!journal) return send(res, 404, { error: 'not_found' });
+        return send(res, 200, { ref: parts[2], operations: journal });
+      }
+
+      if (req.method === 'POST' && url.pathname === '/operations') {
+        const op = await readJson(req);
+        return send(res, 200, store.apply(op));
+      }
+
+      if (req.method === 'POST' && url.pathname === '/operations/batch') {
+        const body = await readJson(req);
+        const ops = body && body.operations;
+        if (!Array.isArray(ops) || ops.length === 0 || ops.length > MAX_BATCH) {
+          return send(res, 400, {
+            error: 'invalid',
+            message: `'operations' doit être une liste de 1 à ${MAX_BATCH} éléments`,
+          });
+        }
+        return send(res, 200, { results: ops.map((op) => store.apply(op)) });
+      }
+
+      if (req.method === 'GET' && url.pathname === '/config') {
+        if (!config) return send(res, 404, { error: 'not_found', message: 'pas de config distante' });
+        return send(res, 200, { config });
+      }
+
+      return send(res, 404, { error: 'not_found' });
+    } catch (err) {
+      const status = err.status || 500;
+      return send(res, status, { error: status === 500 ? 'server_error' : 'invalid', message: err.message });
+    }
+  });
+
+  server.store = store;
+  return server;
+}
+
+module.exports = { createServer };
+
+if (require.main === module) {
+  const port = Number(process.env.PORT || 8787);
+  const host = process.env.HOST || '0.0.0.0';
+  const configFile = process.env.KURA_MOCK_CONFIG;
+  const server = createServer({
+    items: loadItems(process.env.KURA_MOCK_ITEMS || path.join(__dirname, 'data', 'items.json')),
+    token: process.env.KURA_MOCK_TOKEN || null,
+    config: configFile ? fs.readFileSync(configFile, 'utf8') : null,
+    latencyMs: Number(process.env.KURA_MOCK_LATENCY_MS || 0),
+    log: (line) => console.log(`${new Date().toISOString()} ${line}`),
+  });
+  server.listen(port, host, () => {
+    console.log(`Kura Mock Server sur http://${host}:${port}`);
+    if (process.env.KURA_MOCK_TOKEN) console.log('Authentification Bearer activée');
+  });
+}
